@@ -118,6 +118,32 @@ compensação e falhas fechadas.
 aplicações completas.** A DBSeller testada carrega o bootstrap real,
 mas não um formulário municipal completo.
 
+## MVP experimental — código para avaliação
+
+O MVP está em desenvolvimento **sem instalação automática**, sem deploy e
+sem acesso a ambientes de empresas. O código adicionado permanece desligado
+por padrão: as novas rotas Nextcloud v2 exigem habilitação explícita e
+identidade de serviço mapeada pelo administrador; a ponte PHP MVP está
+bloqueada para uso fora de bancos de teste sintéticos. A PoC e seus testes
+continuam presentes.
+
+A arquitetura e seus namespaces estão descritos em
+[docs/MVP-ARCHITECTURE.md](docs/MVP-ARCHITECTURE.md), as verificações e
+limitações em [docs/MVP-STATE.md](docs/MVP-STATE.md), e as instruções de
+entrega aos fornecedores em
+[docs/MVP-VALIDATION-HANDOFF.md](docs/MVP-VALIDATION-HANDOFF.md).
+
+O inventariador PHP `bin/inventory.php` analisa **somente código-fonte
+público explicitamente selecionado**, sem conectar à rede ou ao banco.
+O levantamento inicial de mecanismos não cobertos está em
+[docs/DBSELLER-STORAGE-INVENTORY.md](docs/DBSELLER-STORAGE-INVENTORY.md).
+
+Os testes SQL utilizam `tests/compose.synthetic.yml`: apenas banco
+descartável, rede interna e nenhuma porta exposta. Os testes de contrato
+do novo Nextcloud v2 ainda não substituem uma homologação HTTP real;
+revisões pendentes, autorização municipal e recuperação após falhas
+permanecem critérios de aceite do produto.
+
 ## Para quem mantém um fork
 
 Leia [CONTRIBUTING.md](CONTRIBUTING.md). O fluxo é criar um módulo,
@@ -134,9 +160,11 @@ compatibilidade/testes.
 
 A integração não intercepta `pg_lo_*` nativos fora das fachadas;
 não implementa driver Laravel/Flysystem, E-Storage e `bytea` em todos
-os módulos. Também faltam IDs estáveis sem colisão com documentos
-históricos, autenticação/ACL real por município, reconciliação de
-COMMIT/ROLLBACK, migração, streaming e políticas de retenção.
+os módulos. Existem implementações experimentais para referência independente,
+escopo de autenticação e reconciliação de COMMIT/ROLLBACK, mas ainda
+não estão conectadas nem homologadas em um ERP completo. Permanecem
+pendentes a compatibilidade de referências históricas, migração,
+streaming, retenção e testes HTTP integrais do app v2.
 
 Os três módulos têm `production_ready=false`. O aplicativo
 Nextcloud existente é um laboratório com tenant e usuário fixos.
