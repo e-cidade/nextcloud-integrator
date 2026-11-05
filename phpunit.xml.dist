@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 LibreCode coop and contributors -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.0/phpunit.xsd"
+         bootstrap="tests/phpunit/bootstrap.php"
+         colors="true"
+         cacheDirectory=".build/phpunit"
+         failOnEmptyTestSuite="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         failOnDeprecation="true">
+    <testsuites>
+        <testsuite name="Integration SDK behavior">
+            <directory>tests/phpunit</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">src</directory>
+            <directory suffix=".php">modules</directory>
+        </include>
+    </source>
+</phpunit>

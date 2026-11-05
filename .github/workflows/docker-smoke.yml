@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Docker Smoke
+on: [push, pull_request]
+permissions:
+  contents: read
+concurrency:
+  group: docker-smoke-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  docker-smoke:
+    name: Isolated PHP CLI smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate Docker Compose config
+        run: docker compose config --quiet
+      - name: Smoke PHP CLI with no network or root privileges
+        run: docker compose run --rm cli test-unit

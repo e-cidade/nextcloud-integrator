@@ -1,0 +1,37 @@
+{
+  "schema": 2,
+  "id": "contass",
+  "name": "Contass",
+  "version": "0.1.0-lab",
+  "tested": true,
+  "min_php": "7.4.0",
+  "upstream": "e-cidade/e-cidade-Contass@28e2a797dd0d14d3f7ea918d3ce06add154ec381",
+  "capabilities": [
+    "large-object-facade"
+  ],
+  "gaps": [
+    "direct-pg_lo",
+    "laravel-storage",
+    "bytea",
+    "transaction-atomicity",
+    "multi-tenant-identity"
+  ],
+  "certification": "facade-contract-lab",
+  "production_ready": false,
+  "planned_capabilities": [
+    "laravel-filesystem-driver",
+    "bytea-adapter"
+  ],
+  "hooks": [
+    {
+      "type": "php-file-override",
+      "source": {
+        "path": "std/DBLargeObject.php",
+        "git_blob": "824b80c991a2a0678a1b845b7ce2862aaad9c34f"
+      },
+      "target": "std/DBLargeObject.php",
+      "replacement": "DBLargeObject.php",
+      "contract": "DBLargeObject"
+    }
+  ]
+}

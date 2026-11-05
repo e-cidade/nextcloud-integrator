@@ -1,0 +1,21 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "enabledManagers": [
+    "dockerfile",
+    "docker-compose"
+  ],
+  "schedule": [
+    "before 7am on monday"
+  ],
+  "timezone": "America/Sao_Paulo",
+  "packageRules": [
+    {
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose"
+      ],
+      "groupName": "Docker base images",
+      "automerge": false
+    }
+  ]
+}

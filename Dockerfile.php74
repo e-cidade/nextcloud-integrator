@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+FROM php:7.4-cli@sha256:620a6b9f4d4feef2210026172570465e9d0c1de79766418d3affd09190a7fda5
+# Compatibility-only lab. PHP 7.4 and Debian Bullseye are end-of-life.
+RUN set -eu; \
+    printf 'deb [trusted=yes] http://archive.debian.org/debian bullseye main\n' > /etc/apt/sources.list; \
+    printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99-archive; \
+    apt-get -o Acquire::Check-Valid-Until=false update; \
+    apt-get install -y --no-install-recommends libpq-dev; \
+    docker-php-ext-install pgsql pdo_pgsql; \
+    rm -rf /var/lib/apt/lists/*

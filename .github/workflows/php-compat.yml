@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: PHP compatibility
+on: [push, pull_request]
+permissions:
+  contents: read
+concurrency:
+  group: php-compat-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  php-compat:
+    name: PHP ${{ matrix.version }} syntax and contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: '5.6'
+            image: php:5.6-cli@sha256:6ce95208609dc66df163ab936c970b3b34cd901b85c747102c5999f08ade9143
+          - version: '7.4'
+            image: php:7.4-cli@sha256:620a6b9f4d4feef2210026172570465e9d0c1de79766418d3affd09190a7fda5
+          - version: '8.3'
+            image: php:8.3-cli@sha256:600bce7c7acf524756e5aac989f4a763aed709960d7326970bb670f46efee53a
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check Nextcloud PHP 8.3 application contract
+        if: matrix.version == '8.3'
+        run: docker run --rm --network none -v "$PWD:/sdk:ro" -w /sdk --entrypoint php "${{ matrix.image }}" /sdk/tests/poc-server-contract.php
+      - name: Run PHP contract and syntax tests
+        run: docker run --rm --network none -v "$PWD:/sdk:ro" -w /sdk --entrypoint php "${{ matrix.image }}" /sdk/bin/integrator.php test-unit

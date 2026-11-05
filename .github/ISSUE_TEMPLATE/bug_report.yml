@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Bug report
+description: Report a reproducible issue using only synthetic data
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Never post municipal documents, credentials, tokens or PII. Report security issues privately."
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and Git commit
+      description: Include exact fork and source revision
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Synthetic reproduction
+      description: Steps and minimal test fixture without real user data
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected versus actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized evidence and CI checks

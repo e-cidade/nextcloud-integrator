@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: PHPUnit
+on: [push, pull_request]
+permissions:
+  contents: read
+concurrency:
+  group: phpunit-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  phpunit:
+    name: PHPUnit behavior and security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2.40.0
+        with:
+          php-version: '8.3'
+          extensions: dom, mbstring, xml, curl
+          tools: composer:v2
+          coverage: none
+      - name: Install isolated, locked PHPUnit
+        run: composer install -d vendor-bin/phpunit --no-interaction --prefer-dist --no-progress
+      - name: Run PHPUnit
+        run: php vendor-bin/phpunit/vendor/bin/phpunit -c phpunit.xml.dist --no-progress

@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Actionlint
+on: [push, pull_request]
+permissions:
+  contents: read
+concurrency:
+  group: actionlint-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actionlint:
+    name: GitHub Actions syntax and expressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+        with:
+          version: 1.7.12
+          shellcheck: false

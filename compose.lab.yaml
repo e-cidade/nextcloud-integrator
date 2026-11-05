@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Optional test-only repository mappings for the isolated poland laboratory.
+# This file should not be required when a new user installs the SDK.
+services:
+  cli:
+    volumes:
+      - ../dbseller-current/source:/sources/dbseller:ro
+      - ../contass/source:/sources/contass:ro
+      - ../cpd/source:/sources/cpd:ro

@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+/vendor/
+/vendor-bin/*/vendor/
+/.build/
+/.phpunit.cache/
+/.phpunit-watcher.yml
+/coverage/
+/.env
+/.env.*
+/config/selected.json
+/tests/last-lab-run.log
+/build-php74.log
+/.php-cs-fixer.cache
+/.phpunit.result.cache
+/*.key
+/*.pem
+**/*.dump
+**/*.backup
+**/db-data/
+__pycache__/
+.DS_Store

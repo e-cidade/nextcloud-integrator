@@ -1,0 +1,15 @@
+{
+    "name": "librecode/ecidade-integrator-php-cs-fixer",
+    "description": "Isolated development tool for the e-Cidade integration PHP SDK",
+    "type": "project",
+    "license": "AGPL-3.0-or-later",
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.90"
+    },
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "8.3.0"
+        }
+    }
+}

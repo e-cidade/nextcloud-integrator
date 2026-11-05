@@ -1,0 +1,46 @@
+{
+    "name": "e-cidade/nextcloud-integrator",
+    "description": "PHP adapter SDK for e-Cidade forks using a shared Nextcloud document service",
+    "type": "library",
+    "require": {
+        "php": ">=5.6.4",
+        "ext-json": "*",
+        "ext-curl": "*"
+    },
+    "suggest": {
+        "ext-curl": "Required for the Nextcloud HTTP document client",
+        "ext-pgsql": "Required for legacy PostgreSQL large-object compatibility"
+    },
+    "autoload": {
+        "psr-4": {
+            "ECidade\\Nextcloud\\": "src/"
+        }
+    },
+    "bin": [
+        "bin/integrator.php"
+    ],
+    "scripts": {
+        "lint": "@php tests/lint.php",
+        "test-unit": "@php bin/integrator.php test-unit",
+        "test": "@php bin/integrator.php test-unit",
+        "analyse": "vendor-bin/phpstan/vendor/bin/phpstan analyse -c phpstan.neon.dist --no-progress --memory-limit=1G",
+        "cs:check": "vendor-bin/php-cs-fixer/vendor/bin/php-cs-fixer fix --dry-run --diff --using-cache=no --config=.php-cs-fixer.dist.php",
+        "cs:fix": "vendor-bin/php-cs-fixer/vendor/bin/php-cs-fixer fix --using-cache=no --config=.php-cs-fixer.dist.php",
+        "test:phpunit": "vendor-bin/phpunit/vendor/bin/phpunit -c phpunit.xml.dist",
+        "check": [
+            "@lint",
+            "@cs:check",
+            "@analyse",
+            "@test:phpunit",
+            "@test"
+        ],
+        "test:poc-server": "@php tests/poc-server-contract.php"
+    },
+    "license": "AGPL-3.0-or-later",
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "5.6.40"
+        }
+    }
+}

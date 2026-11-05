@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version = 1
+SPDX-PackageName = "ecidade-nextcloud-integrator"
+SPDX-PackageSupplier = "LibreCode coop and contributors"
+
+# JSON cannot contain SPDX comments. Keep annotations narrow and auditable.
+[[annotations]]
+path = [
+    "composer.json",
+    "composer.lock",
+    "adapter.schema.json",
+    "renovate.json",
+    "modules/dbseller/module.json",
+    "modules/contass/module.json",
+    "modules/cpd/module.json",
+    "vendor-bin/phpunit/composer.json",
+    "vendor-bin/phpunit/composer.lock",
+    "vendor-bin/phpstan/composer.json",
+    "vendor-bin/phpstan/composer.lock",
+    "vendor-bin/php-cs-fixer/composer.json",
+    "vendor-bin/php-cs-fixer/composer.lock"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 LibreCode coop and contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

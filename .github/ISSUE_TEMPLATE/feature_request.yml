@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Adapter or feature proposal
+description: Propose a new fork integration or storage contract
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: input
+    id: upstream
+    attributes:
+      label: Upstream Git repository and exact commit
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Existing storage contract and evidence
+      description: Identify DBLargeObject, pg_lo, E-Storage, Laravel or bytea
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Compatibility, security and transaction risks
+    validations:
+      required: true

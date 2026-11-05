@@ -1,0 +1,35 @@
+{
+  "schema": 2,
+  "id": "dbseller",
+  "name": "DBSeller",
+  "version": "0.1.0-lab",
+  "tested": true,
+  "min_php": "5.6.4",
+  "upstream": "e-cidade/e-cidade-DBSeller@7fab5ac38b19dbd842ca81a259186c613c90f3c1",
+  "capabilities": [
+    "large-object-facade"
+  ],
+  "gaps": [
+    "direct-pg_lo",
+    "transaction-atomicity",
+    "migration",
+    "multi-tenant-identity"
+  ],
+  "certification": "bootstrap-contract-lab",
+  "production_ready": false,
+  "planned_capabilities": [
+    "estorage-adapter"
+  ],
+  "hooks": [
+    {
+      "type": "php-file-override",
+      "source": {
+        "path": "ecidade/std/DBLargeObject.php",
+        "git_blob": "a5980256e57e97fdb6b8f6dcdde5844c10cc7d07"
+      },
+      "target": "std/DBLargeObject.php",
+      "replacement": "DBLargeObject.php",
+      "contract": "DBLargeObject"
+    }
+  ]
+}
