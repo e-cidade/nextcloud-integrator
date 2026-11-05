@@ -60,6 +60,11 @@ class LargeObjectBridge
     }
     private static function query($sql)
     {
+        // Check before BEGIN/COMMIT; even a rejected adapter must never
+        // change the state of an unrelated ERP PostgreSQL connection.
+        if (self::$spi !== null && !self::$ledger->usesConnection(self::connection())) {
+            throw new \RuntimeException('Legacy SQL connection changed after SPI binding');
+        }
         if (!pg_query(self::connection(), $sql)) {
             throw new \RuntimeException('Legacy DB transaction failed');
         }

@@ -141,6 +141,23 @@ try {
     LargeObjectBridge::bind($spi, $context, $ledger);
     ++$checks;
 
+    // A changed ERP global connection must fail before an implicit BEGIN
+    // could modify that other SQL session or leak its transaction state.
+    $originalConnection = $conn;
+    $GLOBALS['conn'] = $reader;
+    try {
+        requireFork(forkDenied(function () {
+            DBLargeObject::criaOID(false);
+        }), 'bound SPI used a different ERP SQL connection');
+        requireFork(
+            pg_transaction_status($reader) === PGSQL_TRANSACTION_IDLE,
+            'rejected connection received an implicit BEGIN'
+        );
+    } finally {
+        $GLOBALS['conn'] = $originalConnection;
+    }
+    ++$checks;
+
     // The native facade owns BEGIN/COMMIT only when explicitly requested.
     $oid = DBLargeObject::criaOID(false);
     requireFork(is_int($oid) && $oid >= 3000000000, 'logical OID allocation');
