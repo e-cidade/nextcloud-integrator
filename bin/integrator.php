@@ -45,6 +45,16 @@ try {
             }
             echo 'PASS adapter ',$argv[2],' source compatibility',PHP_EOL;
             break;
+        case 'verify-pinned':
+            if (!isset($argv[2],$argv[3])) {
+                throw new \InvalidArgumentException('Usage: verify-pinned <id> <public-checkout>');
+            }
+            $result = $r->verifyPinnedCheckout($argv[2], $argv[3]);
+            echo 'PASS pinned ', $argv[2], ' revision ', $result['revision'], PHP_EOL;
+            foreach ($result['verified_hooks'] as $file => $hash) {
+                echo 'PASS ', $file, ' ', $hash, PHP_EOL;
+            }
+            break;
         case 'detect':
             if (!isset($argv[2])) {
                 throw new \InvalidArgumentException('Usage: detect <fork-source-root>');
@@ -153,7 +163,7 @@ try {
             echo 'Created module ',$id,'. Fill upstream hook signatures and run tests before enabling.',PHP_EOL;
             break;
         default:
-            throw new \InvalidArgumentException('Commands: test-unit, list, inspect, detect, verify, plan, select, scaffold');
+            throw new \InvalidArgumentException('Commands: test-unit, list, inspect, detect, verify, verify-pinned, plan, select, scaffold');
     }
 } catch (\Exception $e) {
     fwrite(STDERR, 'ERROR: '.$e->getMessage().PHP_EOL);
