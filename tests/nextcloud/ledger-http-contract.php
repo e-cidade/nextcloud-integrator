@@ -203,6 +203,17 @@ try {
         $clientA->download($scopeA, $rolled['document_key'], $staged['operation_key']);
     }), 'Rolled-back remote staged bytes were readable');
 
+    // Even a valid, correctly signed pending-read proof cannot turn a
+    // different municipality's authenticated service principal into tenant A.
+    $foreignSignedClient = scopedClient($scopeA, 'synthetic-service-b', $url);
+    ensure(assertDenied(static function () use ($foreignSignedClient, $scopeA, $rolled, $staged): void {
+        $foreignSignedClient->downloadPending(
+            $scopeA,
+            $rolled['document_key'],
+            $staged['operation_key']
+        );
+    }), 'Signed pending-read MAC bypassed the authenticated municipality mapping');
+
     // The same logical document and retry ID are kept after a crash that
     // happened after remote finalize but before SQL outbox completion.
     sql($db, 'BEGIN');
