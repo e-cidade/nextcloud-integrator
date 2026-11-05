@@ -5,30 +5,34 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/modules/dbseller/SourcePreflight.php';
-
-use ECidade\Nextcloud\DBSeller\SourcePreflight;
+use ECidade\Nextcloud\AdapterRegistry;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class DBSellerSourcePreflightTest extends TestCase
 {
+    private string $fixture;
     private string $checkout;
+    private AdapterRegistry $registry;
 
     protected function setUp(): void
     {
-        $this->checkout = sys_get_temp_dir() . '/ecidade-source-' . bin2hex(random_bytes(12));
-        self::assertTrue(mkdir($this->checkout, 0700));
-        self::assertSame(0, $this->git('init -q'));
+        $this->fixture = sys_get_temp_dir() . '/ecidade-dbseller-' . bin2hex(random_bytes(12));
+        $this->checkout = $this->fixture . '/public';
         self::assertTrue(mkdir($this->checkout . '/ecidade/std', 0700, true));
+        self::assertTrue(mkdir($this->fixture . '/modules/dbseller', 0700, true));
+        self::assertSame(0, $this->git('init -q'));
         file_put_contents($this->checkout . '/ecidade/std/DBLargeObject.php', '<?php class DBLargeObject {}');
         self::assertSame(0, $this->git('add .'));
         self::assertSame(0, $this->git('-c user.name=Fixture -c user.email=fixture@example.invalid commit -qm fixture'));
+        file_put_contents($this->fixture . '/modules/dbseller/DBLargeObject.php', '<?php // shim');
+        $this->saveManifest($this->manifest());
+        $this->registry = new AdapterRegistry($this->fixture);
     }
 
     protected function tearDown(): void
     {
-        $this->remove($this->checkout);
+        $this->remove($this->fixture);
     }
 
     private function git(string $arguments): int
@@ -37,77 +41,95 @@ final class DBSellerSourcePreflightTest extends TestCase
         return $status;
     }
 
+    private function revision(): string
+    {
+        return trim((string) shell_exec('git -C ' . escapeshellarg($this->checkout) . ' rev-parse HEAD'));
+    }
+
     private function manifest(): array
     {
-        $revision = trim((string) shell_exec('git -C ' . escapeshellarg($this->checkout) . ' rev-parse HEAD'));
+        $bytes = (string) file_get_contents($this->checkout . '/ecidade/std/DBLargeObject.php');
         return [
-            'upstream' => 'e-cidade/e-cidade-DBSeller@' . $revision,
+            'schema' => 2,
+            'id' => 'dbseller',
+            'name' => 'DBSeller',
+            'version' => '0.1.0-lab',
+            'tested' => true,
+            'min_php' => '5.6.4',
+            'upstream' => 'e-cidade/e-cidade-DBSeller@' . $this->revision(),
+            'capabilities' => ['large-object-facade'],
+            'gaps' => ['estorage-adapter'],
+            'certification' => 'bootstrap-contract-lab',
+            'production_ready' => false,
             'hooks' => [
                 [
+                    'type' => 'php-file-override',
                     'source' => [
                         'path' => 'ecidade/std/DBLargeObject.php',
-                        'git_blob' => SourcePreflight::blobId('<?php class DBLargeObject {}'),
+                        'git_blob' => sha1('blob ' . strlen($bytes) . "\0" . $bytes),
                     ],
+                    'target' => 'std/DBLargeObject.php',
+                    'replacement' => 'DBLargeObject.php',
+                    'contract' => 'DBLargeObject',
                 ],
             ],
         ];
     }
 
-    public function testPinnedPublicCheckoutWithMatchingBlobIsAccepted(): void
+    private function saveManifest(array $manifest): void
     {
-        $result = SourcePreflight::verify($this->checkout, $this->manifest());
-        self::assertCount(1, $result['verified_hooks']);
-        self::assertSame('ecidade/std/DBLargeObject.php', $result['verified_hooks'][0]['path']);
+        file_put_contents($this->fixture . '/modules/dbseller/module.json', json_encode($manifest));
+    }
+
+    public function testSharedRegistryValidatesDbSellerRevisionAndBlob(): void
+    {
+        $result = $this->registry->verifyPinnedCheckout('dbseller', $this->checkout);
+        self::assertSame($this->revision(), $result['revision']);
+        self::assertArrayHasKey('ecidade/std/DBLargeObject.php', $result['verified_hooks']);
     }
 
     public static function invalidContracts(): iterable
     {
-        yield 'unexpected upstream repository' => ['upstream', 'example/another-fork@'];
-        yield 'missing source hook' => ['hooks', []];
-        yield 'path traversal' => ['path', 'ecidade/../secrets.php'];
-        yield 'incorrect blob' => ['blob', str_repeat('0', 40)];
-        yield 'missing source' => ['path', 'ecidade/std/Unknown.php'];
+        yield 'wrong repository pin' => ['upstream', 'other/e-cidade-DBSeller'];
+        yield 'wrong revision' => ['upstream', 'e-cidade/e-cidade-DBSeller@' . '0'];
+        yield 'wrong source blob' => ['git_blob', str_repeat('0', 40)];
+        yield 'unsafe source path' => ['path', 'ecidade/../secrets.php'];
+        yield 'missing source file' => ['path', 'ecidade/std/NotPresent.php'];
     }
 
     #[DataProvider('invalidContracts')]
-    public function testInvalidContractsFailClosed(string $field, mixed $value): void
+    public function testSharedRegistryRejectsInvalidContracts(string $field, string $value): void
     {
         $manifest = $this->manifest();
         if ($field === 'upstream') {
-            $manifest['upstream'] = $value . substr($manifest['upstream'], -40);
-        } elseif ($field === 'hooks') {
-            $manifest['hooks'] = $value;
-        } elseif ($field === 'blob') {
-            $manifest['hooks'][0]['source']['git_blob'] = $value;
+            $manifest['upstream'] = $value;
         } else {
-            $manifest['hooks'][0]['source']['path'] = $value;
+            $manifest['hooks'][0]['source'][$field] = $value;
         }
+        $this->saveManifest($manifest);
         $this->expectException(RuntimeException::class);
-        SourcePreflight::verify($this->checkout, $manifest);
+        $this->registry->verifyPinnedCheckout('dbseller', $this->checkout);
     }
 
-    public function testUnpinnedCheckoutRevisionIsRejected(): void
+    public function testUnrecognizedCheckoutRevisionIsRejected(): void
     {
-        $manifest = $this->manifest();
-        file_put_contents($this->checkout . '/unrelated.txt', 'next commit');
+        file_put_contents($this->checkout . '/later.txt', 'unexpected change');
         self::assertSame(0, $this->git('add .'));
-        self::assertSame(0, $this->git('-c user.name=Fixture -c user.email=fixture@example.invalid commit -qm next'));
+        self::assertSame(0, $this->git('-c user.name=Fixture -c user.email=fixture@example.invalid commit -qm later'));
         $this->expectException(RuntimeException::class);
-        SourcePreflight::verify($this->checkout, $manifest);
+        $this->registry->verifyPinnedCheckout('dbseller', $this->checkout);
     }
 
-    public function testProductionAndUnsupportedCapabilitiesRemainDisabled(): void
+    public function testPublicDbSellerManifestDoesNotClaimUnsupportedCapabilities(): void
     {
         $manifest = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/modules/dbseller/module.json'), true);
         self::assertFalse($manifest['production_ready']);
         self::assertNotContains('estorage-adapter', $manifest['capabilities']);
+        self::assertContains('large-object-facade', $manifest['capabilities']);
     }
 
     private function remove(string $directory): void
     {
-        if (!is_dir($directory)) {
-            return;
-        }
         foreach (new FilesystemIterator($directory, FilesystemIterator::SKIP_DOTS) as $item) {
             if ($item->isDir() && !$item->isLink()) {
                 $this->remove($item->getPathname());

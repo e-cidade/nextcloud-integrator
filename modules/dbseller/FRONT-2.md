@@ -28,3 +28,7 @@ The shared `DocumentClient` provides `reserve/write/read/inspect/remove` only. I
 ## Unmet acceptance gate
 
 Run the pinned DBSeller ERP **actual HTTP/UI municipal flow** in a newly created disposable lab with its own PostgreSQL and Nextcloud, synthetic business records, and no existing installations mounted. Test create/read/update/delete, negative ACL/parent cases, transaction rollback/restart/network failure, MIME/Base64/temp lifecycle. Compare SHA-256 document bytes across Nextcloud, PostgreSQL large objects, relevant `bytea` columns, E-Storage and persistent filesystem before/after each operation; LO count alone does not prove no duplicates. Attach sanitized logs and steps. None of this is demonstrated by this source analysis. Keep `production_ready=false` and issue #6 open.
+
+## Shared preflight
+
+Use the common command `php bin/integrator.php verify-pinned dbseller <public-checkout>` against the pinned public revision. Revision and Git blob checks are provided by the shared registry, not by a fork-specific verifier. The PHPUnit suite covers the DBSeller manifest contract and fail-closed behavior with data providers. This preflight does not certify a municipal ERP workflow.
