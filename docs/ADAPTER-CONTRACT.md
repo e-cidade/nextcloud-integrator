@@ -270,6 +270,16 @@ implementation must validate the session, actor, installation and municipality
 against ERP-side authority. The manifest must explicitly authorize the
 persistent-document surface; the current vendor manifests do not.
 
+For the shared PHP bootstrap, `ECIDADE_SPI_V1=1` permits loading a
+non-production adapter **only** when its reviewed manifest explicitly
+declares a SPI v1 persistent-document capability. This is a load-time gate,
+**not** an automatic connection, ACL grant, endorsement of the manifest, or
+production enablement. The vendor manifests intentionally lack this
+capability until their actual ERP callsites are validated. The historical
+`ECIDADE_POC_CLIENT=1` lab mode is separate and must never be used to enable
+the transactional SPI. Tests prove that the SPI flag alone cannot bypass a
+missing capability declaration; shared class loading remains PHP 5.6-safe.
+
 A legacy `DBLargeObject` write has no caller-supplied idempotency key and the
 bridge therefore generates one per invocation. Uncertain HTTP results can
 leave staged orphans, which are safely reconciled or discarded; they cannot
