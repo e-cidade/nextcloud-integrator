@@ -31,8 +31,8 @@ merge a sensitive fix without maintainer approval.
   reconciliation is not yet implemented.
 - Documents and audit metadata must not be logged or copied to the legacy DB.
 - Only reviewed adapter modules can execute PHP bootstrap hooks.
-- No production data should be uploaded to CI, test fixtures or the `poland`
-  laboratory without explicit authorization and an anonymization plan.
+- No production data should be uploaded to CI, test fixtures or an isolated test
+  environment without explicit authorization and an anonymization plan.
 
 See [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) and
 [docs/OPERATIONS.md](docs/OPERATIONS.md) before even considering pilot use.
