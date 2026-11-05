@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # DBSeller integration: Front 2
 
 Pinned source: `e-cidade/e-cidade-DBSeller@7fab5ac38b19dbd842ca81a259186c613c90f3c1`; verified facade `ecidade/std/DBLargeObject.php` Git blob `a5980256e57e97fdb6b8f6dcdde5844c10cc7d07`.
