@@ -227,3 +227,26 @@ still requires CI on the exact reviewed commit, independent signatures and
 return-value review by all three fork teams, and an explicit security review
 of pending-read capability and operational key management. The synthetic
 contract is **not** evidence of production readiness or municipal homologation.
+
+
+### Pinned upstream source contract (PHP 5.6/7.4)
+
+The `.github/workflows/fork-source-runtime.yml` matrix fetches only the
+pinned public `DBLargeObject.php` from DBSeller, Contass and CPD; the same
+`verify-pinned` registry validates the commit and Git blob. It executes the
+**unaltered** legacy class on the fork's PHP version against a disposable
+PostgreSQL instance and compares its public static signatures and default
+arguments to the existing adapter facade. Cases cover native OID allocation,
+implicit/existing SQL transaction, exact bytes written, file extraction,
+return types, deletion, rollback and rejection outside transactions. No
+municipal dumps, customer instances or deployments are involved.
+
+This additional source-level runtime test does **not** boot the full ERP,
+exercise Laravel/E-Storage flows or establish that a fork adapter already
+consumes the SPI v1. The existing `modules/*/DBLargeObject.php` still
+reference the historical experimental `LargeObjectBridge/DocumentClient`,
+which returns a Nextcloud file ID as a legacy OID and must **not** be mistaken
+for the new transactional SPI. No fork is authorized to activate it. Actual
+functional homologation requires a controlled, synthetic, disposable ERP
+runtime and a fork adapter wired to `AdapterStorageV1`; issue #18 must not be
+closed on a false positive from the legacy facade alone.

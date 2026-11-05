@@ -1,0 +1,98 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Compare public PINNED fork PHP methods and native PostgreSQL LO behavior.
+# No ERP/customer DB, Nextcloud credential, real dataset, or external service.
+# Native PostgreSQL LO is intentionally exercised ONLY to observe the legacy
+# return/transaction contract, not as an implementation of the new storage.
+name: Pinned fork source runtime contracts
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-source-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: "${{ matrix.fork }} PHP ${{ matrix.php }} native source"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - fork: dbseller
+            php: '5.6'
+            repository: e-cidade-DBSeller
+            commit: 7fab5ac38b19dbd842ca81a259186c613c90f3c1
+            source: ecidade/std/DBLargeObject.php
+          - fork: contass
+            php: '7.4'
+            repository: e-cidade-Contass
+            commit: 28e2a797dd0d14d3f7ea918d3ce06add154ec381
+            source: std/DBLargeObject.php
+          - fork: cpd
+            php: '5.6'
+            repository: e-cidade-CPD
+            commit: 39cce22ed59cda56edbbeb3b746e692ab7d66fcb
+            source: std/DBLargeObject.php
+    services:
+      synthetic-pg:
+        image: postgres:11@sha256:5d2aa4a7b5f9bdadeddcf87cf7f90a176737a02a30d917de4ab2e6a329bd2d45
+        env:
+          POSTGRES_DB: ecidade_synthetic_test
+          POSTGRES_USER: mvp_test
+          POSTGRES_PASSWORD: synthetic-only-fork-native-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mvp_test -d ecidade_synthetic_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      ECIDADE_SYNTHETIC_FORK_CONTRACT: '1'
+      ECIDADE_INTEGRATOR_ROOT: ${{ github.workspace }}
+      ECIDADE_ADAPTER: ${{ matrix.fork }}
+      PGHOST: 127.0.0.1
+      PGDATABASE: ecidade_synthetic_test
+      PGUSER: mvp_test
+      PGPASSWORD: synthetic-only-fork-native-ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pgsql, curl
+          coverage: none
+      - name: Fetch only pinned public original PHP file
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/fork-original"
+          git -C "$RUNNER_TEMP/fork-original" init -q
+          git -C "$RUNNER_TEMP/fork-original" remote add origin "https://github.com/e-cidade/${{ matrix.repository }}.git"
+          git -C "$RUNNER_TEMP/fork-original" sparse-checkout init --no-cone
+          git -C "$RUNNER_TEMP/fork-original" sparse-checkout set --no-cone "/${{ matrix.source }}"
+          git -C "$RUNNER_TEMP/fork-original" fetch --depth 1 --filter=blob:none origin "${{ matrix.commit }}"
+          git -C "$RUNNER_TEMP/fork-original" checkout --quiet --detach FETCH_HEAD
+      - name: Confirm exact revision and immutable source fingerprint
+        run: php bin/integrator.php verify-pinned "${{ matrix.fork }}" "$RUNNER_TEMP/fork-original"
+      - name: Compare original public method signatures and replacement
+        run: |
+          php tests/upstream/facade-signature.php \
+            "$RUNNER_TEMP/fork-original/${{ matrix.source }}" \
+            "modules/${{ matrix.fork }}/DBLargeObject.php"
+      - name: Exercise untouched original class against disposable PostgreSQL
+        run: |
+          php tests/upstream/native-large-object-contract.php \
+            "${{ matrix.fork }}" \
+            "$RUNNER_TEMP/fork-original/${{ matrix.source }}"
