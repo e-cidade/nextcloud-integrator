@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: DBSeller source contract
+on:
+  pull_request:
+    paths:
+      - 'modules/dbseller/**'
+      - 'tests/dbseller-source-preflight.php'
+      - '.github/workflows/dbseller-preflight.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'modules/dbseller/**'
+      - 'tests/dbseller-source-preflight.php'
+      - '.github/workflows/dbseller-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify contract and safety gates
+        run: |
+          php -l modules/dbseller/SourcePreflight.php
+          php -l modules/dbseller/preflight.php
+          php -l tests/dbseller-source-preflight.php
+          php tests/dbseller-source-preflight.php
