@@ -20,19 +20,27 @@ preservada. O MVP é uma **implementação experimental desativada**.
   relativa, sem expor paths internos.
 - Testes de comportamento e segurança com fakes e PostgreSQL
   isolado/descartável.
+- API HTTP v2 executada contra Nextcloud 35.0.2 real, isolado e
+  descartável: autorização de duas contas/municípios, 28 verificações
+  documentais, recusa por padrão, persistência após reinicialização
+  e revogação de uma conta. Teste reproduzível no workflow
+  `nextcloud-http-contract.yml`. O tráfego é HTTP apenas dentro
+  do contêiner de teste; o transporte PHP HTTPS completo ainda
+  precisa de validação integrada.
 - Ponte sintética para interface legada, **não instalada em nenhum ERP**.
 
 ## Ainda não demonstrado
 
-- Funcionamento real dos novos endpoints Nextcloud v2 num serviço
-  Nextcloud 35 criado especificamente para esse MVP.
+- Teste integrado da aplicação DBSeller com o cliente PHP real sobre
+  HTTPS, PostgreSQL e Nextcloud v2 na mesma transação empresarial.
 - Instalação de prova em aplicação DBSeller completa e fluxos municipais
   reais com dados sintéticos.
 - Cobertura de E-Storage, `pg_lo_*` diretos e outras rotas documentais.
 - Migração de dados históricos, recuperação de versões legadas e
   desativação/retorno transparente em sistemas existentes.
 - Streaming de arquivos grandes, performance, retenção, assinatura,
-  segurança/operabilidade e CI remota deste novo incremento.
+  segurança/operabilidade e CI remota do teste HTTP v2, que depende
+  dos resultados de GitHub Actions para a revisão publicada.
 
 O tratamento dessas lacunas depende de testes adicionais e da
 validação dos mantenedores. Nenhuma issue do MVP deve ser encerrada

@@ -53,6 +53,25 @@ Quando houver um checkout com projeto Compose existente, utilizar
 `-p <identificador-unico-de-teste>` para impedir colisão de recursos.
 Nenhum desses comandos deve ser executado em host de produção.
 
+## Teste HTTP Nextcloud descartável (sem implantação)
+
+O workflow `.github/workflows/nextcloud-http-contract.yml` cria um
+Nextcloud 35 oficial, em rede Docker interna, **sem portas publicadas**,
+com duas contas fictícias. Os dados são mantidos somente em um volume
+Docker novo e exclusivo daquele teste. Um restart demonstra
+persistência; o workflow destrói contêiner, rede e volume ao final.
+
+As fases da suíte PHP em `tests/nextcloud/http-contract.php`
+demonstram: bloqueio por padrão; gravação e confirmação imutável;
+checksum; acesso negado antes da confirmação; idempotência; recusa
+da mesma chave com outros bytes; isolamento entre dois municípios;
+limpeza provisória conservadora; reinicialização; revogação de conta.
+
+**O teste usa HTTP exclusivamente dentro do contêiner.** O SDK PHP
+requer HTTPS em sua configuração e precisa de um teste integrado
+com o serviço PostgreSQL, certificados e o fluxo ERP para completar
+o contrato end-to-end. Não reproduzir manualmente em serviços reais.
+
 ## Configuração do app Nextcloud — exemplo fictício
 
 O lado Nextcloud v2 procura configuração de administrador equivalente a:
@@ -67,10 +86,11 @@ O lado Nextcloud v2 procura configuração de administrador equivalente a:
 ],
 ```
 
-O valor `false` deve permanecer até o serviço receber testes HTTP
-de autenticação, escopo, persistência e falha em instalação descartável.
-Não reproduzir esse exemplo em um serviço ativo sem um projeto de
-homologação específico.
+O valor `false` é obrigatório fora do teste. O serviço já passou
+por testes HTTP de autenticação, escopo, persistência após reinício
+e revogação de conta em Nextcloud 35.0.2 inteiramente descartável.
+Isso não autoriza ativá-lo em instalações existentes ou em um piloto
+sem homologação integrada com o ERP, PostgreSQL e cliente HTTPS.
 
 ## Critérios de aceite para mantenedores
 

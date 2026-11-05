@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Strictly disposable Nextcloud 35 HTTP test. Internal Docker network,
+# no host ports, no shared/local production volumes or persistence.
+name: ecidade-nextcloud-synthetic-test
+
+services:
+  nextcloud:
+    image: nextcloud:35-apache@sha256:57ef13427eb50e6fac64933e0f50cc4a2abaa142dfaf52dfb6c658382dd103a8
+    environment:
+      NEXTCLOUD_ADMIN_USER: synthetic-admin
+      NEXTCLOUD_ADMIN_PASSWORD: ${MVP_SYNTHETIC_PASSWORD:?Disposable test password required}
+      NEXTCLOUD_TRUSTED_DOMAINS: localhost nextcloud
+      SQLITE_DATABASE: synthetic_nextcloud
+      PHP_MEMORY_LIMIT: 512M
+    # New, project-scoped Docker volume. Required to test durability across
+    # container restarts; removed by --volumes after every synthetic test.
+    volumes:
+      - synthetic_nextcloud:/var/www/html
+      - ../nextcloud-app/ecidadelab:/var/www/html/custom_apps/ecidadelab:ro
+      - ../tests:/sdk/tests:ro
+    networks:
+      - synthetic
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --show-error --fail --max-time 4 http://127.0.0.1/status.php >/dev/null"]
+      interval: 4s
+      timeout: 5s
+      retries: 45
+
+networks:
+  synthetic:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${MVP_SYNTHETIC_SUBNET:-172.31.244.0/28}
+
+volumes:
+  synthetic_nextcloud:
+    labels:
+      org.e-cidade.disposable-test: "true"

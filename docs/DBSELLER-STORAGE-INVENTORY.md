@@ -18,6 +18,11 @@ de computador é documentado aqui.
 | `ecidade/app/Domain/Configuracao/Helpers/StorageHelper.php` | Cliente E-Storage: upload, mudança, download, base64 | **Não coberto**. Exige adaptação de interface separada |
 | `ecidade/DBFileUpload.php` | `move_uploaded_file` para pasta temporária | Precisa rastrear ciclo de vida; arquivo temporário não é necessariamente storage definitivo |
 
+O contrato funcional detalhado, incluindo `allowed[]`,
+`file_father`, MIME, retorno `onlyId`, Base64 e arquivos temporários,
+está em [ESTORAGE-ADAPTER-CONTRACT.md](ESTORAGE-ADAPTER-CONTRACT.md).
+Essas regras ainda **não** são implementadas pelo núcleo documental.
+
 Essa lista **não é um inventário exaustivo** das dezenas de milhares de
 arquivos PHP da distribuição. A existência de uma classe não demonstra
 quais módulos municipais a executam. Não é correto declarar 100% de
