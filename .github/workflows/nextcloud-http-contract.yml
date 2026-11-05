@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 name: Synthetic Nextcloud 35 HTTP Contract
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 permissions:
   contents: read
@@ -22,7 +25,9 @@ jobs:
 
       - name: Set temporary synthetic credentials and unique project
         run: |
-          echo "MVP_SYNTHETIC_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          synthetic_secret="$(openssl rand -hex 32)"
+          echo "::add-mask::$synthetic_secret"
+          echo "MVP_SYNTHETIC_PASSWORD=$synthetic_secret" >> "$GITHUB_ENV"
           echo "MVP_PROJECT=ecidade-http-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
 
       - name: Validate disposable Compose configuration

@@ -103,7 +103,9 @@ try {
             'GET',
             '/staged?before=1&limit=1'
         );
-        acceptStatus($status, [403], 'Opt-in gate must reject disabled API');
+        // An unregistered route may be 404 during initial Nextcloud
+        // app enable. The functional phase MUST later prove 201/200 routes.
+        acceptStatus($status, [403, 404], 'Opt-in gate must refuse disabled API');
         echo 'PASS disabled-by-default HTTP gate (' . $checks . " checks)\n";
         exit(0);
     }
