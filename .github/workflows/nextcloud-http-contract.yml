@@ -34,7 +34,7 @@ jobs:
         run: docker compose -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml config --quiet
 
       - name: Start isolated Nextcloud 35
-        run: docker compose -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml up -d --wait --wait-timeout 180
+        run: docker compose -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml up -d --wait --wait-timeout 180 nextcloud
 
       - name: Configure synthetic accounts in disposable Nextcloud
         run: |
@@ -71,8 +71,17 @@ jobs:
         run: |
           C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
           $C restart nextcloud
-          $C up -d --wait --wait-timeout 180
+          $C up -d --wait --wait-timeout 180 nextcloud
           $C exec -T -e ECIDADE_SYNTHETIC_HTTP_TEST=1 -e "MVP_SYNTHETIC_PASSWORD=$MVP_SYNTHETIC_PASSWORD" nextcloud php /sdk/tests/nextcloud/http-contract.php restart
+
+      - name: Verify PHP SDK over trusted HTTPS and transactional PostgreSQL
+        run: |
+          C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
+          I="docker compose --profile integration -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
+          $C exec -T nextcloud sh -ec 'umask 077; openssl req -x509 -newkey rsa:2048 -nodes -days 1 -sha256 -subj "/CN=synthetic-nextcloud" -addext "subjectAltName=DNS:synthetic-nextcloud" -keyout /synthetic-certs/key.pem -out /synthetic-certs/cert.pem >/dev/null 2>&1; chmod 0644 /synthetic-certs/cert.pem'
+          $I up -d --wait --wait-timeout 120 tls-proxy mvp-db-ci0001
+          $I build ledger-runner
+          $I run --rm --no-deps ledger-runner
 
       - name: Revoke synthetic account and deny further access
         run: |
@@ -84,5 +93,5 @@ jobs:
         if: always()
         run: |
           if test -n "${MVP_PROJECT:-}"; then
-            docker compose -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml down --volumes --remove-orphans
+            docker compose --profile integration -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml down --volumes --remove-orphans
           fi

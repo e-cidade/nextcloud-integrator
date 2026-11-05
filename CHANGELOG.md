@@ -17,6 +17,8 @@ notes from unmerged work.
 
 ### Added
 
+- Integration contract tests for the PHP client, transactional PostgreSQL metadata and verified HTTPS transport to Nextcloud.
+
 - Shared PHP Nextcloud document client and adapter registry.
 - DBSeller, Contass and CPD proof-of-contract adapters.
 - PHP 5.6/7.4 compatibility tests and synthetic Nextcloud integration.

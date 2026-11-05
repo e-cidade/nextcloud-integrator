@@ -168,6 +168,11 @@ try {
         $base,
         $bytes
     );
+    if ($status !== 201) {
+        $message = is_array($meta) ? ($meta['ocs']['meta']['message'] ?? $meta['message'] ?? '') : '';
+        $reason = is_scalar($message) ? substr((string)$message, 0, 160) : '';
+        throw new RuntimeException('Stage immutable document: HTTP ' . $status . ($reason !== '' ? ' (' . $reason . ')' : ''));
+    }
     acceptStatus($status, [201], 'Stage immutable document');
     check(is_array($meta), 'Stage returns JSON metadata');
     check(($meta['state'] ?? '') === 'staged', 'Initial state is staged');

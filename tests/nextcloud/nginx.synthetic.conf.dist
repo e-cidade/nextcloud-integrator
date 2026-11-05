@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Synthetic-only TLS endpoint. No host port is published by Docker Compose.
+server {
+    listen 443 ssl;
+    server_name synthetic-nextcloud;
+
+    ssl_certificate /synthetic-certs/cert.pem;
+    ssl_certificate_key /synthetic-certs/key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    client_max_body_size 9m;
+    proxy_read_timeout 120s;
+
+    location / {
+        proxy_pass http://nextcloud:80;
+        proxy_http_version 1.1;
+        proxy_set_header Host nextcloud;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host synthetic-nextcloud;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Connection "";
+    }
+}
