@@ -280,10 +280,16 @@ try {
     require_once dirname(__DIR__, 2) . '/modules/dbseller/DBLargeObject.php';
     $facadePolicy = new SyntheticHttpFacadePolicy();
     $facadeContext = new AdapterContext(
-        $scopeA, 'dbseller', 'large-object-facade', 'synthetic-actor'
+        $scopeA,
+        'dbseller',
+        'large-object-facade',
+        'synthetic-actor'
     );
     $facadeSpi = new AdapterServiceV1(
-        $coordinatorA, $ledger, $facadePolicy, [
+        $coordinatorA,
+        $ledger,
+        $facadePolicy,
+        [
             'id' => 'dbseller', 'production_ready' => false,
             'storage_capabilities' => [[
                 'surface' => 'large-object-facade', 'usage' => 'persistent-document',
@@ -295,10 +301,14 @@ try {
     $GLOBALS['conn'] = $db;
     LargeObjectBridge::bind($facadeSpi, $facadeContext, $ledger);
     $legacyOid = DBLargeObject::criaOID(false);
-    ensure(is_int($legacyOid) && $legacyOid >= 3000000000,
-        'Legacy facade must receive a logical SQL OID');
-    ensure(pg_transaction_status($db) === PGSQL_TRANSACTION_IDLE,
-        'Legacy facade implicit create must commit');
+    ensure(
+        is_int($legacyOid) && $legacyOid >= 3000000000,
+        'Legacy facade must receive a logical SQL OID'
+    );
+    ensure(
+        pg_transaction_status($db) === PGSQL_TRANSACTION_IDLE,
+        'Legacy facade implicit create must commit'
+    );
     ensure(assertDenied(static function () use ($legacyOid): void {
         DBLargeObject::writeContent('no-transaction', $legacyOid);
     }), 'Legacy facade must reject writes without business transaction');
@@ -308,12 +318,17 @@ try {
     $facadeTarget = tempnam(sys_get_temp_dir(), 'spi-https-');
     try {
         sql($db, 'BEGIN');
-        ensure(DBLargeObject::writeContent($facadeV1, $legacyOid) === strlen($facadeV1),
-            'Facade to SPI HTTPS write returned wrong byte count');
-        ensure(DBLargeObject::leitura($legacyOid, $facadeTarget) === true
+        ensure(
+            DBLargeObject::writeContent($facadeV1, $legacyOid) === strlen($facadeV1),
+            'Facade to SPI HTTPS write returned wrong byte count'
+        );
+        ensure(
+            DBLargeObject::leitura($legacyOid, $facadeTarget) === true
             && file_get_contents($facadeTarget) === $facadeV1,
-            'Facade cannot read staged HTTPS content in owner transaction');
-        $linkedRemoteId = (int)pg_fetch_result(sql($db,
+            'Facade cannot read staged HTTPS content in owner transaction'
+        );
+        $linkedRemoteId = (int)pg_fetch_result(sql(
+            $db,
             'SELECT remote_file_id FROM ecidade_nextcloud.operations '
             . 'WHERE legacy_id=' . (int)$legacyOid . '::oid AND operation_type=\'write\''
         ), 0, 0);
@@ -324,22 +339,28 @@ try {
         sql($db, 'COMMIT');
 
         sql($db, 'BEGIN');
-        ensure(DBLargeObject::leitura($legacyOid, $facadeTarget)
+        ensure(
+            DBLargeObject::leitura($legacyOid, $facadeTarget)
             && file_get_contents($facadeTarget) === $facadeV1,
-            'Facade cannot read committed SQL journal before worker');
+            'Facade cannot read committed SQL journal before worker'
+        );
         sql($db, 'COMMIT');
         ensure($workerA->runOnce(), 'Facade write was not finalized by common worker');
 
         sql($db, 'BEGIN');
         DBLargeObject::writeContent($facadeV2, $legacyOid);
-        ensure(DBLargeObject::leitura($legacyOid, $facadeTarget)
+        ensure(
+            DBLargeObject::leitura($legacyOid, $facadeTarget)
             && file_get_contents($facadeTarget) === $facadeV2,
-            'Facade cannot read own HTTPS update');
+            'Facade cannot read own HTTPS update'
+        );
         sql($db, 'ROLLBACK');
         sql($db, 'BEGIN');
-        ensure(DBLargeObject::leitura($legacyOid, $facadeTarget)
+        ensure(
+            DBLargeObject::leitura($legacyOid, $facadeTarget)
             && file_get_contents($facadeTarget) === $facadeV1,
-            'Facade rollback exposed abandoned HTTPS version');
+            'Facade rollback exposed abandoned HTTPS version'
+        );
         sql($db, 'COMMIT');
 
         $facadePolicy->revoked = true;
@@ -354,9 +375,11 @@ try {
         ensure(DBLargeObject::exclusao($legacyOid), 'Legacy facade delete return mismatch');
         sql($db, 'ROLLBACK');
         sql($db, 'BEGIN');
-        ensure(DBLargeObject::leitura($legacyOid, $facadeTarget)
+        ensure(
+            DBLargeObject::leitura($legacyOid, $facadeTarget)
             && file_get_contents($facadeTarget) === $facadeV1,
-            'Rollback of facade deletion lost existing document');
+            'Rollback of facade deletion lost existing document'
+        );
         ensure(DBLargeObject::exclusao($legacyOid), 'Legacy facade delete failed');
         sql($db, 'COMMIT');
         sql($db, 'BEGIN');

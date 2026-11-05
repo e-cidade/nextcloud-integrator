@@ -1,4 +1,5 @@
 <?php
+
 // SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -44,7 +45,6 @@ use ECidade\Nextcloud\Application\DocumentCoordinator;
 use ECidade\Nextcloud\Application\DocumentReconciler;
 use ECidade\Nextcloud\Contract\DocumentAccessPolicy;
 use ECidade\Nextcloud\Domain\AdapterContext;
-use ECidade\Nextcloud\Domain\AdapterFailure;
 use ECidade\Nextcloud\Domain\Scope;
 use ECidade\Nextcloud\LargeObjectBridge;
 use ECidade\Nextcloud\Persistence\PgDocumentLedger;
@@ -103,7 +103,8 @@ $output = tempnam(sys_get_temp_dir(), 'spi-output-');
 $checks = 0;
 try {
     // Never run an ERP migration: schema exists only in the test database.
-    $tables = (int)pg_fetch_result(forkSql($conn,
+    $tables = (int)pg_fetch_result(forkSql(
+        $conn,
         "SELECT count(*) FROM information_schema.tables WHERE table_schema='ecidade_nextcloud'"
     ), 0, 0);
     if ($tables === 0) {
@@ -112,7 +113,9 @@ try {
         requireFork($tables === 2, 'incomplete synthetic schema');
     }
     $baseline = (int)pg_fetch_result(
-        forkSql($conn, 'SELECT count(*) FROM pg_largeobject_metadata'), 0, 0
+        forkSql($conn, 'SELECT count(*) FROM pg_largeobject_metadata'),
+        0,
+        0
     );
     $scope = new Scope('installation-a', 'municipio-a');
     $ledger = new PgDocumentLedger($conn);
@@ -148,7 +151,7 @@ try {
     }), 'legacy read without SQL transaction must fail');
     ++$checks;
 
-    $original = "synthetic-fork-spi-".$fork."\0" . str_repeat('A', 4096);
+    $original = 'synthetic-fork-spi-'.$fork."\0" . str_repeat('A', 4096);
     $updated = "synthetic-updated\0" . str_repeat('B', 3072);
     file_put_contents($input, $original);
     forkSql($conn, 'BEGIN');
@@ -181,7 +184,10 @@ try {
     // Only the SQL identity is exposed. A synthetic remote file ID is small.
     requireFork($oid !== 101, 'Nextcloud file ID was used as legacy OID');
     $foreign = new AdapterContext(
-        new Scope('installation-b', 'municipio-b'), $fork, 'large-object-facade', 'synthetic-actor'
+        new Scope('installation-b', 'municipio-b'),
+        $fork,
+        'large-object-facade',
+        'synthetic-actor'
     );
     requireFork(forkDenied(function () use ($spi, $foreign, $oid) {
         $spi->read($foreign, $oid);
@@ -225,8 +231,10 @@ try {
     forkSql($conn, 'COMMIT');
     requireFork($worker->runOnce(), 'update worker finalize');
     requireFork(count($remote->objects) === 3, 'immutable versions and orphan expected');
-    requireFork($worker->discardOrphans($scope, time() - 86400, 10) === 1,
-        'rollback orphan cleanup');
+    requireFork(
+        $worker->discardOrphans($scope, time() - 86400, 10) === 1,
+        'rollback orphan cleanup'
+    );
     ++$checks;
 
     // Exercise the separate file-writing entrypoint without allocating PG LOs.
@@ -236,8 +244,10 @@ try {
         $second = DBLargeObject::gerarArquivoOid($input, true);
     } else {
         $second = DBLargeObject::criaOID(true);
-        requireFork(DBLargeObject::escrita($input, $second) === strlen($original),
-            'file upload return value');
+        requireFork(
+            DBLargeObject::escrita($input, $second) === strlen($original),
+            'file upload return value'
+        );
     }
     requireFork(is_int($second) && $second !== $oid, 'second logical OID');
     requireFork(DBLargeObject::leitura($second, $output)
@@ -271,10 +281,13 @@ try {
 
     // Any new native LO must be exactly the historical test fixture above.
     $nativeAfter = (int)pg_fetch_result(
-        forkSql($conn, 'SELECT count(*) FROM pg_largeobject_metadata'), 0, 0
+        forkSql($conn, 'SELECT count(*) FROM pg_largeobject_metadata'),
+        0,
+        0
     );
     requireFork($nativeAfter === $baseline + 1, 'SPI duplicated bytes in native PostgreSQL LOs');
-    requireFork((int)pg_fetch_result(forkSql($conn,
+    requireFork((int)pg_fetch_result(forkSql(
+        $conn,
         "SELECT count(*) FROM information_schema.columns WHERE table_schema='ecidade_nextcloud' AND data_type='bytea'"
     ), 0, 0) === 0, 'SQL journal contains bytea columns');
     ++$checks;
