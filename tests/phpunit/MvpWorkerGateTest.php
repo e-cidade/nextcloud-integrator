@@ -27,6 +27,6 @@ final class MvpWorkerGateTest extends TestCase
         $source = file_get_contents(dirname(__DIR__, 2) . '/bin/mvp-worker.php');
         self::assertIsString($source);
         self::assertStringContainsString("preg_match('/^--max=", $source);
-        self::assertStringContainsString("(int)\$match[1] > 100", $source);
+        self::assertStringContainsString('(int)$match[1] > 100', $source);
     }
 }
