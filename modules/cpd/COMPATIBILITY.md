@@ -67,3 +67,5 @@ before this front can be accepted.
    and SQL OID references against the selected municipal workflow.
 5. Verify PHP 5.6 syntax and legacy return/error semantics in the **real** CPD
    invocation, including transactional errors and missing OIDs.
+
+The pinned revision and Git blob checks now use the common adapter registry (verify-pinned). The CPD-specific verifier checks only bootstrap entrypoints and legacy signatures, not a separate source-pinning implementation.
