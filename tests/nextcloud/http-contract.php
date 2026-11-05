@@ -103,9 +103,9 @@ try {
             'GET',
             '/staged?before=1&limit=1'
         );
-        // An unregistered route may be 404 during initial Nextcloud
-        // app enable. The functional phase MUST later prove 201/200 routes.
-        acceptStatus($status, [403, 404], 'Opt-in gate must refuse disabled API');
+        // Fail if the app route was never registered. The disposable
+        // HTTP worker is reloaded after app activation by the workflow.
+        acceptStatus($status, [403], 'Opt-in gate must refuse disabled API');
         echo 'PASS disabled-by-default HTTP gate (' . $checks . " checks)\n";
         exit(0);
     }
