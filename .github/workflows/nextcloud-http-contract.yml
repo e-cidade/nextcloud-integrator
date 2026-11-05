@@ -46,6 +46,15 @@ jobs:
           $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-service-b installation --value=installation-b
           $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-service-b tenant --value=municipio-b
 
+      # The CLI activates the app after Apache has already booted.
+      # Restart only this disposable container so HTTP workers rebuild their
+      # route registration; health checks must pass before requests start.
+      - name: Reload disposable Nextcloud HTTP routes after activation
+        run: |
+          C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
+          $C restart nextcloud
+          $C up -d --wait --wait-timeout 180
+
       - name: Prove default-deny for disabled MVP API
         run: |
           C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
