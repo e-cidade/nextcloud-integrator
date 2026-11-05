@@ -115,6 +115,19 @@ class AdapterRegistry
         }
         return $m;
     }
+    /** Shared revision and immutable hook verification. */
+    public function verifyPinnedCheckout($id, $sourceRoot)
+    {
+        $manifest = $this->find($id);
+        require_once __DIR__.'/PinnedCheckoutVerifier.php';
+        $revision = PinnedCheckoutVerifier::verify($sourceRoot, $manifest['upstream']);
+        $hooks = $this->verifySource($id, $sourceRoot);
+        if (count($hooks) === 0) {
+            throw new \RuntimeException('Pinned adapter has no source signatures');
+        }
+        return ['revision' => $revision, 'verified_hooks' => $hooks];
+    }
+
     public function verifySource($id, $sourceRoot)
     {
         $m = $this->find($id);
