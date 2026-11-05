@@ -64,7 +64,7 @@ O reconciliador recebe um `Scope` obrigatório, e a consulta SQL filtra por inst
 
 ## Limitações atuais
 
-- App Nextcloud v2 e worker real ainda precisam de teste HTTP completo em ambiente sintético **novo**, sem usar nenhum servidor existente.
+- A compatibilidade depende da validação dos caminhos de leitura e escrita de cada distribuição do e-Cidade. Testes isolados do transporte e da persistência não substituem a homologação de fluxos empresariais completos.
 - Não há política definitiva de retenção, assinatura, LGPD e backup/restauração.
 - O endpoint atual possui limite experimental de 8 MiB e buffering em memória; streaming não foi implementado.
 - Não há instrumento de migração de bases antigas nem ativação para clientes.

@@ -39,8 +39,7 @@ php vendor-bin/phpstan/vendor/bin/phpstan analyse -c phpstan.neon.dist
 
 A suíte `tests/compose.synthetic.yml` usa banco PostgreSQL efêmero
 em tmpfs, rede `internal: true`, **nenhuma porta publicada**, credenciais
-sintéticas e descarte completo ao final. Este é o único contexto em
-que o schema de MVP deve ser executado nesta fase.
+sintéticas e descarte completo ao final. O schema pode ser executado apenas em bancos de teste isolados e descartáveis durante a validação; sua aplicação a instalações existentes exige procedimento de implantação próprio e homologado.
 
 ```text
 # Executar somente no ambiente descartável explicitamente preparado.
@@ -67,10 +66,16 @@ checksum; acesso negado antes da confirmação; idempotência; recusa
 da mesma chave com outros bytes; isolamento entre dois municípios;
 limpeza provisória conservadora; reinicialização; revogação de conta.
 
-**O teste usa HTTP exclusivamente dentro do contêiner.** O SDK PHP
-requer HTTPS em sua configuração e precisa de um teste integrado
-com o serviço PostgreSQL, certificados e o fluxo ERP para completar
-o contrato end-to-end. Não reproduzir manualmente em serviços reais.
+Uma segunda etapa do mesmo workflow usa o SDK PHP **real** com
+PostgreSQL 11 e Nextcloud 35, por um proxy HTTPS com certificado
+gerado para aquele teste e verificado pelo cliente. Essa etapa
+demonstra 26 verificações de consistência, isolamento municipal,
+reconciliação, falhas e ausência de bytes no PostgreSQL.
+
+Mesmo assim, o **ERP integral não foi iniciado**: as transações
+empresariais são sintéticas. Não reproduzir em serviços reais.
+A execução deve ser realizada exclusivamente pelo job descartável,
+que destrói seus próprios volumes, certificados e containers.
 
 ## Configuração do app Nextcloud — exemplo fictício
 
@@ -86,7 +91,7 @@ O lado Nextcloud v2 procura configuração de administrador equivalente a:
 ],
 ```
 
-O valor `false` é obrigatório fora do teste. O serviço já passou
+O valor `false` é o padrão seguro; a habilitação requer homologação e autorização explícitas. O serviço já passou
 por testes HTTP de autenticação, escopo, persistência após reinício
 e revogação de conta em Nextcloud 35.0.2 inteiramente descartável.
 Isso não autoriza ativá-lo em instalações existentes ou em um piloto

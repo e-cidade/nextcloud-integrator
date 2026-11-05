@@ -20,6 +20,7 @@ services:
       - synthetic_nextcloud:/var/www/html
       - ../nextcloud-app/ecidadelab:/var/www/html/custom_apps/ecidadelab:ro
       - ../tests:/sdk/tests:ro
+      - synthetic_tls:/synthetic-certs
     networks:
       - synthetic
     security_opt:
@@ -30,6 +31,82 @@ services:
       timeout: 5s
       retries: 45
 
+  # Integration profile: no service is started by regular HTTP tests.
+  tls-proxy:
+    profiles: ["integration"]
+    image: nginx:1.31.8-alpine3.24@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+    volumes:
+      - ./nextcloud/nginx.synthetic.conf.dist:/etc/nginx/conf.d/default.conf:ro
+      - synthetic_tls:/synthetic-certs:ro
+    networks:
+      synthetic:
+        aliases:
+          - synthetic-nextcloud
+    depends_on:
+      nextcloud:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  mvp-db-ci0001:
+    profiles: ["integration"]
+    image: postgres:11@sha256:5d2aa4a7b5f9bdadeddcf87cf7f90a176737a02a30d917de4ab2e6a329bd2d45
+    environment:
+      POSTGRES_DB: ecidade_synthetic_test
+      POSTGRES_USER: mvp_test
+      POSTGRES_PASSWORD: ${MVP_SYNTHETIC_PASSWORD:?Disposable test password required}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    tmpfs:
+      - /var/lib/postgresql/data:size=402653184,uid=999,gid=999,mode=0700
+    volumes:
+      - ../database/001_opt_in_mvp_schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    networks:
+      - synthetic
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mvp_test -d ecidade_synthetic_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    security_opt:
+      - no-new-privileges:true
+
+  ledger-runner:
+    profiles: ["integration"]
+    build:
+      context: ..
+      dockerfile: tests/Dockerfile.pg
+    entrypoint: ["php", "/sdk/tests/nextcloud/ledger-http-contract.php"]
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      ECIDADE_SYNTHETIC_TEST: "1"
+      ECIDADE_SYNTHETIC_HTTPS_TEST: "1"
+      PGHOST: mvp-db-ci0001
+      PGDATABASE: ecidade_synthetic_test
+      PGUSER: mvp_test
+      PGPASSWORD: ${MVP_SYNTHETIC_PASSWORD:?Disposable test password required}
+      MVP_SYNTHETIC_PASSWORD: ${MVP_SYNTHETIC_PASSWORD:?Disposable test password required}
+    volumes:
+      - ../:/sdk:ro
+      - synthetic_tls:/synthetic-certs:ro
+    networks:
+      - synthetic
+    depends_on:
+      mvp-db-ci0001:
+        condition: service_healthy
+      tls-proxy:
+        condition: service_started
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
 networks:
   synthetic:
     internal: true
@@ -39,5 +116,8 @@ networks:
 
 volumes:
   synthetic_nextcloud:
+    labels:
+      org.e-cidade.disposable-test: "true"
+  synthetic_tls:
     labels:
       org.e-cidade.disposable-test: "true"
