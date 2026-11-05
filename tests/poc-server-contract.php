@@ -30,8 +30,8 @@ if (strpos($manifest, '<id>ecidadelab</id>') === false
 }
 
 $routes = require $routesFile;
-if (!is_array($routes) || !isset($routes['ocs']) || count($routes['ocs']) !== 6) {
-    throw new RuntimeException('Nextcloud app must expose exactly six document API routes');
+if (!is_array($routes) || !isset($routes['ocs']) || count($routes['ocs']) !== 12) {
+    throw new RuntimeException('Nextcloud app must expose exactly twelve legacy and MVP document API routes');
 }
 $expected = [
     'documents#create' => 'POST',
@@ -40,6 +40,12 @@ $expected = [
     'documents#download' => 'GET',
     'documents#replace' => 'PUT',
     'documents#remove' => 'DELETE',
+    'mvp#stage' => 'POST',
+    'mvp#inspect' => 'GET',
+    'mvp#finalize' => 'POST',
+    'mvp#download' => 'GET',
+    'mvp#abort' => 'DELETE',
+    'mvp#staged' => 'GET',
 ];
 foreach ($routes['ocs'] as $route) {
     if (!isset($route['name'], $route['verb'])
@@ -56,7 +62,13 @@ if (is_file($app . '/lib/Controller/FilesApiController.php')) {
     throw new RuntimeException('Benchmark-only file API must not be included in the publishable app');
 }
 
-foreach ([$routesFile, $controllerFile] as $file) {
+foreach ([
+    $routesFile,
+    $controllerFile,
+    $app . '/lib/Controller/MvpController.php',
+    $app . '/lib/Service/ScopePolicy.php',
+    $app . '/lib/Service/ScopedDocumentStorage.php',
+] as $file) {
     $output = [];
     $status = 0;
     exec(escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($file) . ' 2>&1', $output, $status);
@@ -64,4 +76,4 @@ foreach ([$routesFile, $controllerFile] as $file) {
         throw new RuntimeException('Invalid PHP syntax: ' . basename($file));
     }
 }
-echo "PASS Nextcloud 35 PoC app packaged with six document-only routes, PHP 8.3 syntax and no benchmark endpoints\n";
+echo "PASS Nextcloud 35 PoC app packaged with twelve scoped document-only routes, PHP 8.3 syntax and no benchmark endpoints\n";

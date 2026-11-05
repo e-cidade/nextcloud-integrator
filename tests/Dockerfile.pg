@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# CI ONLY: disposable synthetic DB runner, NEVER an e-Cidade deployment image.
+FROM php:8.3-cli@sha256:600bce7c7acf524756e5aac989f4a763aed709960d7326970bb670f46efee53a
+RUN set -eu; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends libpq-dev; \
+    docker-php-ext-install pgsql; \
+    rm -rf /var/lib/apt/lists/*
+WORKDIR /sdk
+ENTRYPOINT ["php", "/sdk/tests/pg-ledger-contract.php"]

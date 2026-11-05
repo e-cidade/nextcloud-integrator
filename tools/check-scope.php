@@ -29,8 +29,8 @@ foreach ($it as $entry) {
         $bad[] = $relative . ': symlinks require explicit review';
         continue;
     }
-    if (!preg_match('/\.(php|json|xml|yml|yaml|md|toml|txt|dist|lock)$/iD', $name)
-        && !in_array($name, ['README.md','LICENSE','Dockerfile.php74',
+    if (!preg_match('/\.(php|json|xml|yml|yaml|md|toml|txt|dist|lock|sql)$/iD', $name)
+        && !in_array($name, ['README.md','LICENSE','Dockerfile.php74','Dockerfile.pg',
             'CONTRIBUTING.md','.gitignore','.editorconfig','.gitattributes','CODEOWNERS'], true)
         && strpos($relative, '.github/') !== 0) {
         $bad[] = $relative . ': unrecognized file extension';
@@ -39,7 +39,8 @@ foreach ($it as $entry) {
         '\.backup|\.sql|\.sqlite|\.db|\.log)$/iD', $relative)
         || strpos($relative, 'selected.json') !== false) {
         // Explicitly exempt example credential-free configuration only.
-        if ($name !== '.env.example') {
+        if ($name !== '.env.example'
+            && $relative !== 'database/001_opt_in_mvp_schema.sql') {
             $bad[] = $relative . ': sensitive or generated artifact';
         }
     }

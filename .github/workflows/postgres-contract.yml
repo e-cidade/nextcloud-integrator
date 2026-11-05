@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Synthetic PostgreSQL Document Contract
+on: [push, pull_request]
+permissions:
+  contents: read
+concurrency:
+  group: synthetic-postgres-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ledger:
+    name: Synthetic PG11 transaction and tenant isolation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate isolated Docker Compose
+        env:
+          MVP_SYNTHETIC_PASSWORD: synthetic-only-ci-placeholder
+        run: docker compose -f tests/compose.synthetic.yml config --quiet
+      - name: Test PostgreSQL outbox in disposable containers
+        env:
+          MVP_SYNTHETIC_PASSWORD: synthetic-only-ci-placeholder
+        run: docker compose -f tests/compose.synthetic.yml up --build --abort-on-container-exit --exit-code-from runner
+      - name: Remove disposable containers and network
+        if: always()
+        env:
+          MVP_SYNTHETIC_PASSWORD: synthetic-only-ci-placeholder
+        run: docker compose -f tests/compose.synthetic.yml down --remove-orphans --volumes

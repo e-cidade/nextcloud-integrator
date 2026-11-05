@@ -8,7 +8,7 @@
  */
 $root = dirname(__DIR__);
 $paths = [];
-foreach (['/src/*.php','/modules/*/*.php','/bin/*.php','/tools/*.php','/poc/fixtures/*.php',
+foreach (['/src/*.php','/src/*/*.php','/modules/*/*.php','/bin/*.php','/tools/*.php','/poc/fixtures/*.php','/tests/fixtures/*.php',
     '/tests/*.php','/bootstrap.php'] as $pattern) {
     foreach (glob($root.$pattern) as $path) {
         $paths[] = $path;

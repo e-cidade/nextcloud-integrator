@@ -11,7 +11,7 @@ spl_autoload_register(static function (string $class): void {
         return;
     }
 
-    $file = dirname(__DIR__, 2) . '/src/' . substr($class, strlen($namespace)) . '.php';
+    $file = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', substr($class, strlen($namespace))) . '.php';
     if (is_file($file)) {
         require_once $file;
     }

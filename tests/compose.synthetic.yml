@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# This Compose project uses ONLY a disposable tmpfs PostgreSQL database
+# and a synthetic test runner. No ports, volumes, SSH or external networks.
+name: ecidade-mvp-synthetic-tests
+
+services:
+  mvp-db-ci0001:
+    image: postgres:11@sha256:5d2aa4a7b5f9bdadeddcf87cf7f90a176737a02a30d917de4ab2e6a329bd2d45
+    environment:
+      POSTGRES_DB: ecidade_synthetic_test
+      POSTGRES_USER: mvp_test
+      POSTGRES_PASSWORD: ${MVP_SYNTHETIC_PASSWORD:?Set a disposable test password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    tmpfs:
+      - /var/lib/postgresql/data:size=402653184,uid=999,gid=999,mode=0700
+    volumes:
+      - ../database/001_opt_in_mvp_schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    networks:
+      - synthetic
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mvp_test -d ecidade_synthetic_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    security_opt:
+      - no-new-privileges:true
+
+  runner:
+    build:
+      context: ..
+      dockerfile: tests/Dockerfile.pg
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      ECIDADE_SYNTHETIC_TEST: "1"
+      PGHOST: mvp-db-ci0001
+      PGDATABASE: ecidade_synthetic_test
+      PGUSER: mvp_test
+      PGPASSWORD: ${MVP_SYNTHETIC_PASSWORD:?Set a disposable test password}
+    volumes:
+      - ../:/sdk:ro
+    networks:
+      - synthetic
+    depends_on:
+      mvp-db-ci0001:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+networks:
+  synthetic:
+    internal: true
