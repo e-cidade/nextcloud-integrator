@@ -100,6 +100,35 @@ try {
     $checks++;
     assertTest(file_get_contents($target) === $bytes, 'Native read bytes mismatch');
     $checks++;
+    // Exercise the other public write entrypoint, including Contass's
+    // generate-file-OID operation. Both must preserve return contracts.
+    if ($fork === 'contass') {
+        $fileOid = DBLargeObject::gerarArquivoOid($input, true);
+        assertTest(
+            is_int($fileOid) && $fileOid > 0,
+            'Original gerarArquivoOid(true) must return an OID'
+        );
+    } else {
+        $fileOid = DBLargeObject::criaOID(true);
+        assertTest(
+            DBLargeObject::escrita($input, $fileOid) === strlen($bytes),
+            'Original escrita must return the number of imported bytes'
+        );
+    }
+    $checks++;
+    assertTest(
+        DBLargeObject::leitura($fileOid, $target) === true
+        && file_get_contents($target) === $bytes,
+        'Original file-writing entrypoint did not preserve bytes'
+    );
+    $checks++;
+    sqlTest('COMMIT');
+    sqlTest('BEGIN');
+    assertTest(
+        DBLargeObject::exclusao($fileOid) === true,
+        'Original second document deletion failed'
+    );
+    $checks++;
     sqlTest('COMMIT');
     sqlTest('BEGIN');
     assertTest(
