@@ -12,13 +12,18 @@ if (PHP_SAPI !== 'cli' || getenv('ECIDADE_MVP_EXPERIMENTAL') !== '1') {
     fwrite(STDERR, "MVP worker disabled; explicit CLI opt-in required.\n");
     exit(2);
 }
-if (!extension_loaded('pgsql') || !extension_loaded('curl')) {
-    fwrite(STDERR, "Required PostgreSQL and cURL extensions are unavailable.\n");
+require_once dirname(__DIR__) . '/src/Application/WorkerBatchOptions.php';
+try {
+    if ($argc !== 2) {
+        throw new \InvalidArgumentException('Missing bounded batch argument');
+    }
+    $max = \ECidade\Nextcloud\Application\WorkerBatchOptions::parseLimit($argv[1]);
+} catch (\InvalidArgumentException $error) {
+    fwrite(STDERR, "Usage: ECIDADE_MVP_EXPERIMENTAL=1 php bin/mvp-worker.php --max=1..100\n");
     exit(2);
 }
-if ($argc !== 2 || !preg_match('/^--max=([1-9][0-9]{0,2})$/D', $argv[1], $match)
-    || (int)$match[1] > 100) {
-    fwrite(STDERR, "Usage: ECIDADE_MVP_EXPERIMENTAL=1 php bin/mvp-worker.php --max=1..100\n");
+if (!extension_loaded('pgsql') || !extension_loaded('curl')) {
+    fwrite(STDERR, "Required PostgreSQL and cURL extensions are unavailable.\n");
     exit(2);
 }
 foreach (['PGHOST', 'PGPORT', 'PGDATABASE', 'PGUSER', 'PGPASSWORD'] as $name) {
@@ -66,7 +71,7 @@ try {
     $remote = \ECidade\Nextcloud\Transport\NextcloudMvpClient::fromEnvironment();
     $worker = new \ECidade\Nextcloud\Application\DocumentReconciler($ledger, $remote, $scope);
     $processed = 0;
-    for ($i = 0; $i < (int)$match[1]; $i++) {
+    for ($i = 0; $i < $max; $i++) {
         if (!$worker->runOnce()) {
             break;
         }
