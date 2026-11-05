@@ -30,4 +30,4 @@ jobs:
           git -C "$RUNNER_TEMP/cpd-synthetic" checkout --detach 39cce22ed59cda56edbbeb3b746e692ab7d66fcb
       - name: Assert PHP 5.6 syntax and pinned source
         run: |
-          docker run --rm --network none -v "$PWD:/sdk:ro" -v "$RUNNER_TEMP/cpd-synthetic:/cpd:ro" -w /sdk --entrypoint sh php:5.6-cli@sha256:6ce95208609dc66df163ab936c970b3b34cd901b85c747102c5999f08ade9143 -c "php -l modules/cpd/verify-upstream.php && php -l modules/cpd/DBLargeObject.php && php bin/integrator.php verify-pinned cpd /cpd && php modules/cpd/verify-upstream.php /cpd"
+          docker run --rm --network none -u "$(id -u):$(id -g)" -v "$PWD:/sdk:ro" -v "$RUNNER_TEMP/cpd-synthetic:/cpd:ro" -w /sdk --entrypoint sh php:5.6-cli@sha256:6ce95208609dc66df163ab936c970b3b34cd901b85c747102c5999f08ade9143 -c "php -l modules/cpd/verify-upstream.php && php -l modules/cpd/DBLargeObject.php && php bin/integrator.php verify-pinned cpd /cpd && php modules/cpd/verify-upstream.php /cpd"

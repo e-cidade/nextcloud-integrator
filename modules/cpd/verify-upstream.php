@@ -16,14 +16,14 @@ $registry = new \ECidade\Nextcloud\AdapterRegistry($root);
 $registry->verifyPinnedCheckout('cpd', $upstream);
 
 // These are CPD-specific integration entrypoints, not generic ERP requirements.
-foreach (array('FrontController.php', 'index.php', 'DBFileUpload.php', 'std/Modification.php') as $path) {
+foreach (['FrontController.php', 'index.php', 'DBFileUpload.php', 'std/Modification.php'] as $path) {
     if (!is_file($upstream.'/'.$path) || is_link($upstream.'/'.$path)) {
         throw new RuntimeException('Missing CPD bootstrap/upload entrypoint: '.$path);
     }
 }
 $facade = file_get_contents($root.'/src/StandardLargeObjectFacade.php');
 $legacy = file_get_contents($upstream.'/std/DBLargeObject.php');
-foreach (array('criaOID', 'escrita', 'writeContent', 'leitura', 'exclusao') as $method) {
+foreach (['criaOID', 'escrita', 'writeContent', 'leitura', 'exclusao'] as $method) {
     $pattern = '/public\s+static\s+function\s+'.preg_quote($method, '/').'\s*\(/';
     if (!preg_match($pattern, $facade) || !preg_match($pattern, $legacy)) {
         throw new RuntimeException('Legacy method missing: '.$method);
