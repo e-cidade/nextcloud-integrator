@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Synthetic Nextcloud 35 HTTP Contract
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetic-nextcloud-http-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  http-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set temporary synthetic credentials and unique project
+        run: |
+          echo "MVP_SYNTHETIC_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "MVP_PROJECT=ecidade-http-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+
+      - name: Validate disposable Compose configuration
+        run: docker compose -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml config --quiet
+
+      - name: Start isolated Nextcloud 35
+        run: docker compose -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml up -d --wait --wait-timeout 180
+
+      - name: Configure synthetic accounts in disposable Nextcloud
+        run: |
+          C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
+          $C exec -T --user www-data nextcloud php occ app:enable ecidadelab
+          $C exec -T --user www-data -e "OC_PASS=$MVP_SYNTHETIC_PASSWORD" nextcloud php occ user:add --password-from-env synthetic-service-b
+          $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-admin installation --value=installation-a
+          $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-admin tenant --value=municipio-a
+          $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-service-b installation --value=installation-b
+          $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-service-b tenant --value=municipio-b
+
+      - name: Prove default-deny for disabled MVP API
+        run: |
+          C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
+          $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_mvp_enabled --type=boolean --value=false
+          $C exec -T -e ECIDADE_SYNTHETIC_HTTP_TEST=1 -e "MVP_SYNTHETIC_PASSWORD=$MVP_SYNTHETIC_PASSWORD" nextcloud php /sdk/tests/nextcloud/http-contract.php disabled
+
+      - name: Test real HTTP lifecycle with two isolated municipalities
+        run: |
+          C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
+          $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_mvp_enabled --type=boolean --value=true
+          $C exec -T -e ECIDADE_SYNTHETIC_HTTP_TEST=1 -e "MVP_SYNTHETIC_PASSWORD=$MVP_SYNTHETIC_PASSWORD" nextcloud php /sdk/tests/nextcloud/http-contract.php functional
+
+      - name: Test durable document recovery after Nextcloud restart
+        run: |
+          C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
+          $C restart nextcloud
+          $C up -d --wait --wait-timeout 180
+          $C exec -T -e ECIDADE_SYNTHETIC_HTTP_TEST=1 -e "MVP_SYNTHETIC_PASSWORD=$MVP_SYNTHETIC_PASSWORD" nextcloud php /sdk/tests/nextcloud/http-contract.php restart
+
+      - name: Revoke synthetic account and deny further access
+        run: |
+          C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
+          $C exec -T --user www-data nextcloud php occ user:disable synthetic-service-b
+          $C exec -T -e ECIDADE_SYNTHETIC_HTTP_TEST=1 -e "MVP_SYNTHETIC_PASSWORD=$MVP_SYNTHETIC_PASSWORD" nextcloud php /sdk/tests/nextcloud/http-contract.php revoked
+
+      - name: Remove only disposable test containers, volumes and network
+        if: always()
+        run: |
+          if test -n "${MVP_PROJECT:-}"; then
+            docker compose -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml down --volumes --remove-orphans
+          fi

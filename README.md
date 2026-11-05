@@ -133,10 +133,19 @@ limitações em [docs/MVP-STATE.md](docs/MVP-STATE.md), e as instruções de
 entrega aos fornecedores em
 [docs/MVP-VALIDATION-HANDOFF.md](docs/MVP-VALIDATION-HANDOFF.md).
 
+O aplicativo Nextcloud v2 passou também por testes HTTP reais no
+Nextcloud 35.0.2 **descartável**; a CI executa o workflow
+`.github/workflows/nextcloud-http-contract.yml`. Foram exercitados
+a recusa com API desabilitada, escrita, leitura, checksums, duas contas
+municipais sintéticas, confirmação idempotente, reinício e revogação
+de uma conta. Não houve implantação em servidor municipal.
+
 O inventariador PHP `bin/inventory.php` analisa **somente código-fonte
 público explicitamente selecionado**, sem conectar à rede ou ao banco.
 O levantamento inicial de mecanismos não cobertos está em
-[docs/DBSELLER-STORAGE-INVENTORY.md](docs/DBSELLER-STORAGE-INVENTORY.md).
+[docs/DBSELLER-STORAGE-INVENTORY.md](docs/DBSELLER-STORAGE-INVENTORY.md),
+com o contrato de E-Storage em
+[docs/ESTORAGE-ADAPTER-CONTRACT.md](docs/ESTORAGE-ADAPTER-CONTRACT.md).
 
 Os testes SQL utilizam `tests/compose.synthetic.yml`: apenas banco
 descartável, rede interna e nenhuma porta exposta. Os testes de contrato
