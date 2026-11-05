@@ -26,6 +26,13 @@ interface RemoteDocuments
     /** Read an immutable committed version. Staged versions MUST fail. */
     public function download(Scope $scope, $documentKey, $operationKey);
 
+    /**
+     * Privileged content access, only after the caller's SQL ledger has
+     * established visibility of the *same* version and scope. Not a normal
+     * public download; both staged and finalized remote states are valid.
+     */
+    public function downloadPending(Scope $scope, $documentKey, $operationKey);
+
     /** Abort an uncommitted staged version. Committed versions MUST fail. */
     public function abort(Scope $scope, $documentKey, $operationKey);
 

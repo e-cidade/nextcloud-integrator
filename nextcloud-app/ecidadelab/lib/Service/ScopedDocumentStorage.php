@@ -212,6 +212,21 @@ final class ScopedDocumentStorage
         return $bytes;
     }
 
+    public function downloadPending(array $scope, string $documentKey, string $operationKey): string
+    {
+        $file = $this->file($scope, $documentKey, $operationKey);
+        $details = $this->details($file, $scope, $documentKey, $operationKey);
+        if (!in_array($details['state'], ['staged', 'committed'], true)) {
+            throw new OCSForbiddenException('Document version is unavailable');
+        }
+        $bytes = $file->getContent();
+        if (!hash_equals($details['checksum'], hash('sha256', $bytes))
+            || $details['size'] !== strlen($bytes)) {
+            throw new \RuntimeException('Document checksum verification failed');
+        }
+        return $bytes;
+    }
+
     public function inspect(array $scope, string $documentKey, string $operationKey): array
     {
         $file = $this->file($scope, $documentKey, $operationKey);

@@ -112,13 +112,21 @@ try {
     ensure($id !== 3000000000 && $id > 3000000000, 'Legacy OID collided with native LO');
     $first = $coordinator->write($scopeA, $id, 'synthetic-pdf-v1');
     ensure($first['revision'] === 1, 'First revision expected');
+    ensure(
+        $coordinator->read($scopeA, $id) === 'synthetic-pdf-v1',
+        'Same transaction must read its own staged bytes'
+    );
     // A second PostgreSQL connection MUST NOT see the uncommitted outbox.
+    ensure(denied(function () use ($workerLedger, $remote, $scopeA, $id) {
+        (new DocumentCoordinator($workerLedger, $remote))->read($scopeA, $id);
+    }), 'Concurrent SQL reader obtained uncommitted staged bytes');
     ensure($workerLedger->claimNext($scopeA) === null, 'Uncommitted SQL journal was visible to worker');
     statement($db, 'COMMIT');
 
-    ensure(denied(function () use ($coordinator, $scopeA, $id) {
-        $coordinator->read($scopeA, $id);
-    }), 'Staged version became readable without reconciliation');
+    ensure(
+        $coordinator->read($scopeA, $id) === 'synthetic-pdf-v1',
+        'Committed journal must be readable before asynchronous reconciliation'
+    );
     ensure($reconciler->runOnce(), 'Committed outbox could not be finalized');
     ensure($coordinator->read($scopeA, $id) === 'synthetic-pdf-v1', 'Committed read mismatch');
     ensure(denied(function () use ($coordinator, $scopeB, $id) {
@@ -131,8 +139,8 @@ try {
     ensure($second['revision'] === 2, 'Expected a second revision');
     statement($db, 'COMMIT');
     ensure(
-        $coordinator->read($scopeA, $id) === 'synthetic-pdf-v1',
-        'Pending revision unexpectedly hid the previously committed version'
+        $coordinator->read($scopeA, $id) === 'synthetic-pdf-v2',
+        'Latest SQL-visible pending revision must be readable immediately'
     );
     ensure($reconciler->runOnce(), 'Updated immutable revision could not be finalized');
     ensure($coordinator->read($scopeA, $id) === 'synthetic-pdf-v2', 'Updated read mismatch');

@@ -128,6 +128,32 @@ final class PgDocumentLedger implements DocumentLedger
         throw new \RuntimeException('Could not allocate a unique legacy document reference');
     }
 
+    /**
+     * Idempotent logical allocation. PostgreSQL advisory xact lock serializes
+     * concurrent reserves with the same scoped business key, without DDL.
+     */
+    public function reserveOnce(Scope $scope, $businessKey)
+    {
+        $this->assertBusinessTransaction();
+        $businessKey = $this->businessKey($businessKey);
+        $this->query(
+            'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+            [$scope->key(), $businessKey]
+        );
+        $result = $this->query(
+            'SELECT legacy_id::text AS legacy_id, document_key, current_revision, pending_revision '
+            . 'FROM ecidade_nextcloud.documents '
+            . 'WHERE installation=$1 AND tenant=$2 AND business_key=$3 AND deleted_at IS NULL',
+            [$scope->installation(), $scope->tenant(), $businessKey]
+        );
+        $row = pg_fetch_assoc($result);
+        if ($row !== false) {
+            $row['legacy_id'] = (int)$row['legacy_id'];
+            return $row;
+        }
+        return $this->reserve($scope, $businessKey);
+    }
+
     public function find(Scope $scope, $legacyId)
     {
         return $this->row($scope, $legacyId);
@@ -160,6 +186,55 @@ final class PgDocumentLedger implements DocumentLedger
         );
         return ['operation_key' => $operationKey, 'revision' => $revision,
             'state' => 'staged', 'document_key' => $row['document_key']];
+    }
+
+    /** Find a visible operation for exactly this reference and scope. */
+    public function findWriteOperation(Scope $scope, $legacyId, $operationKey)
+    {
+        $this->legacyId($legacyId);
+        $operationKey = OperationKey::validate($operationKey);
+        $result = $this->query(
+            'SELECT o.operation_key, o.checksum, o.byte_count, o.revision, o.status '
+            . 'FROM ecidade_nextcloud.operations o '
+            . 'JOIN ecidade_nextcloud.documents d ON d.legacy_id=o.legacy_id '
+            . 'WHERE o.legacy_id=$1::oid AND o.operation_key=$2 AND o.operation_type=\'write\' '
+            . 'AND d.installation=$3 AND d.tenant=$4',
+            [$legacyId, $operationKey, $scope->installation(), $scope->tenant()]
+        );
+        $row = pg_fetch_assoc($result);
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * PostgreSQL MVCC defines visibility: own staged row inside transaction,
+     * committed staged row right after commit, or prior finalized revision.
+     * A concurrent connection never sees another transaction's draft.
+     */
+    public function latestVisibleVersion(Scope $scope, $legacyId)
+    {
+        $document = $this->row($scope, $legacyId);
+        if ($document['deleted_at'] !== null) {
+            throw new \RuntimeException('Document not published');
+        }
+        $revision = $document['pending_revision'] !== null
+            ? (int)$document['pending_revision'] : (int)$document['current_revision'];
+        if ($revision < 1) {
+            throw new \RuntimeException('Document not published');
+        }
+        $result = $this->query(
+            'SELECT o.operation_key, o.checksum, o.byte_count, o.remote_file_id, o.revision, o.status '
+            . 'FROM ecidade_nextcloud.operations o '
+            . 'WHERE o.legacy_id=$1::oid AND o.revision=$2 AND o.operation_type=\'write\' '
+            . 'AND o.status IN (\'staged\',\'processing\',\'finalized\',\'dead\')',
+            [$legacyId, $revision]
+        );
+        $op = pg_fetch_assoc($result);
+        if ($op === false) {
+            throw new \RuntimeException('Visible document version missing its audit record');
+        }
+        $op['document_key'] = $document['document_key'];
+        $op['state'] = $op['status'] === 'finalized' ? 'committed' : 'pending';
+        return $op;
     }
 
     public function tombstone(Scope $scope, $legacyId)

@@ -169,6 +169,64 @@
     "certification": {
       "type": "string",
       "minLength": 3
+    },
+    "storage_capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface",
+          "usage",
+          "spi",
+          "operations"
+        ],
+        "properties": {
+          "surface": {
+            "type": "string",
+            "enum": [
+              "large-object-facade",
+              "direct-pg-lo",
+              "e-storage",
+              "laravel-storage",
+              "filesystem",
+              "bytea",
+              "temporary",
+              "cache",
+              "export"
+            ]
+          },
+          "usage": {
+            "type": "string",
+            "enum": [
+              "persistent-document",
+              "temporary",
+              "cache",
+              "export",
+              "unsupported"
+            ]
+          },
+          "spi": {
+            "const": 1
+          },
+          "operations": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "reserve",
+                "create",
+                "read",
+                "update",
+                "delete",
+                "inspect"
+              ]
+            }
+          }
+        }
+      }
     }
   }
 }

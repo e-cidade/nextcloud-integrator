@@ -28,6 +28,9 @@ jobs:
           synthetic_secret="$(openssl rand -hex 32)"
           echo "::add-mask::$synthetic_secret"
           echo "MVP_SYNTHETIC_PASSWORD=$synthetic_secret" >> "$GITHUB_ENV"
+          pending_secret="$(openssl rand -hex 32)"
+          echo "::add-mask::$pending_secret"
+          echo "MVP_SYNTHETIC_PENDING_KEY=$pending_secret" >> "$GITHUB_ENV"
           echo "MVP_PROJECT=ecidade-http-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
 
       - name: Validate disposable Compose configuration
@@ -41,6 +44,7 @@ jobs:
           C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
           $C exec -T --user www-data nextcloud php occ app:enable ecidadelab
           $C exec -T --user www-data -e "OC_PASS=$MVP_SYNTHETIC_PASSWORD" nextcloud php occ user:add --password-from-env synthetic-service-b
+          $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_pending_read_key --value="$MVP_SYNTHETIC_PENDING_KEY"
           $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-admin installation --value=installation-a
           $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-admin tenant --value=municipio-a
           $C exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-service-b installation --value=installation-b
@@ -81,7 +85,7 @@ jobs:
           $C exec -T nextcloud sh -ec 'umask 077; openssl req -x509 -newkey rsa:2048 -nodes -days 1 -sha256 -subj "/CN=synthetic-nextcloud" -addext "subjectAltName=DNS:synthetic-nextcloud" -keyout /synthetic-certs/key.pem -out /synthetic-certs/cert.pem >/dev/null 2>&1; chmod 0644 /synthetic-certs/cert.pem'
           $I up -d --wait --wait-timeout 120 tls-proxy mvp-db-ci0001
           $I build ledger-runner
-          $I run --rm --no-deps ledger-runner
+          $I run --rm --no-deps -e ECIDADE_MVP_PENDING_READ_KEY="$MVP_SYNTHETIC_PENDING_KEY" ledger-runner
 
       - name: Revoke synthetic account and deny further access
         run: |

@@ -19,6 +19,8 @@ return (new PhpCsFixer\Config())
     ->setRiskyAllowed(false)
     ->setRules([
         '@PSR12' => true,
+        // PHP 5.6 has no visibility modifier for class constants.
+        'modifier_keywords' => ['elements' => ['method', 'property']],
         'array_syntax' => ['syntax' => 'short'],
         'no_unused_imports' => true,
         'ordered_imports' => true,

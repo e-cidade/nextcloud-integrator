@@ -64,6 +64,15 @@ final class FakeRemoteDocuments implements RemoteDocuments
         return $this->objects[$path]['bytes'];
     }
 
+    public function downloadPending(Scope $scope, $documentKey, $operationKey)
+    {
+        $path = $this->path($scope, $documentKey, $operationKey);
+        if (!isset($this->objects[$path])) {
+            throw new RuntimeException('Document version unavailable');
+        }
+        return $this->objects[$path]['bytes'];
+    }
+
     public function abort(Scope $scope, $documentKey, $operationKey)
     {
         $path = $this->path($scope, $documentKey, $operationKey);

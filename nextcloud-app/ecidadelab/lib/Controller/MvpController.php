@@ -143,6 +143,36 @@ final class MvpController extends OCSController
     }
 
     #[NoAdminRequired]
+    public function pendingDownload(string $documentKey, string $operationKey): DataDisplayResponse
+    {
+        $this->keys($documentKey, $operationKey);
+        $scope = $this->scope();
+        // This capability is separate from the authenticated app password.
+        // A normal service principal cannot read a staged document by URL.
+        $secret = $this->config->getSystemValue('ecidadelab_pending_read_key', '');
+        $timestamp = $this->request->getHeader('X-Ecidade-Pending-Time');
+        $signature = $this->request->getHeader('X-Ecidade-Pending-Signature');
+        if (!is_string($secret) || strlen($secret) < 32
+            || !preg_match('/^[0-9]{10}$/D', $timestamp)
+            || abs(time() - (int)$timestamp) > 30
+            || !preg_match('/^[a-f0-9]{64}$/D', $signature)) {
+            throw new OCSForbiddenException('Pending document access forbidden');
+        }
+        $payload = implode("\n", [
+            'pending-read-v1', $scope['installation'], $scope['tenant'],
+            $documentKey, $operationKey, $timestamp
+        ]);
+        if (!hash_equals(hash_hmac('sha256', $payload, $secret), $signature)) {
+            throw new OCSForbiddenException('Pending document access forbidden');
+        }
+        return new DataDisplayResponse(
+            $this->storage->downloadPending($scope, $documentKey, $operationKey),
+            Http::STATUS_OK,
+            ['Content-Type' => 'application/octet-stream', 'Cache-Control' => 'private, no-store']
+        );
+    }
+
+    #[NoAdminRequired]
     public function abort(string $documentKey, string $operationKey): DataDisplayResponse
     {
         $this->keys($documentKey, $operationKey);

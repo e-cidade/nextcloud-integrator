@@ -96,6 +96,7 @@ function scopedClient(Scope $scope, string $user, string $url): NextcloudMvpClie
         'user' => $user,
         'token' => (string)getenv('MVP_SYNTHETIC_PASSWORD'),
         'ca_file' => '/synthetic-certs/cert.pem',
+        'pending_read_key' => (string)getenv('ECIDADE_MVP_PENDING_READ_KEY'),
     ]);
 }
 
@@ -133,14 +134,22 @@ try {
         'Initial version staged via real HTTPS'
     );
     ensure(
+        $coordinatorA->read($scopeA, $id) === $bytes,
+        'Owner transaction can read its own staged HTTPS version'
+    );
+    ensure(assertDenied(static function () use ($workerLedger, $clientA, $scopeA, $id): void {
+        (new DocumentCoordinator($workerLedger, $clientA))->read($scopeA, $id);
+    }), 'Concurrent SQL reader cannot see owner staged version');
+    ensure(
         $workerLedger->claimNext($scopeA) === null,
         'Independent SQL worker cannot see uncommitted outbox'
     );
     sql($db, 'COMMIT');
 
-    ensure(assertDenied(static function () use ($coordinatorA, $scopeA, $id): void {
-        $coordinatorA->read($scopeA, $id);
-    }), 'Unfinalized bytes must not be visible through business contract');
+    ensure(
+        $coordinatorA->read($scopeA, $id) === $bytes,
+        'Committed SQL version available before asynchronous worker'
+    );
 
     ensure($workerA->runOnce(), 'Reconciler finalized real Nextcloud version');
     ensure(
@@ -156,8 +165,8 @@ try {
     sql($db, 'COMMIT');
     ensure($intent2['revision'] === 2, 'Version advanced without changing reference');
     ensure(
-        $coordinatorA->read($scopeA, $id) === $bytes,
-        'Pending replacement does not hide previous committed bytes'
+        $coordinatorA->read($scopeA, $id) === $v2,
+        'Committed SQL replacement readable before worker'
     );
     ensure($workerA->runOnce(), 'Immutable second version finalized');
     ensure(

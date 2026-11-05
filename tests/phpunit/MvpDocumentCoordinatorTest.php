@@ -76,6 +76,19 @@ final class FakeMvpDocumentLedger implements DocumentLedger
         return ['legacy_id' => $id,'document_key' => $key];
     }
 
+    public function reserveOnce(Scope $scope, $businessKey)
+    {
+        $this->needTransaction();
+        foreach ($this->documents as $id => $document) {
+            if ($document['scope']->equals($scope) && $document['business_key'] === $businessKey
+                && $document['deleted_at'] === null) {
+                return ['legacy_id' => $id, 'document_key' => $document['document_key'],
+                    'current_revision' => $document['current_revision']];
+            }
+        }
+        return $this->reserve($scope, $businessKey);
+    }
+
     public function find(Scope $scope, $legacyId)
     {
         return $this->document($scope, $legacyId);
@@ -98,6 +111,36 @@ final class FakeMvpDocumentLedger implements DocumentLedger
         ];
         return ['operation_key' => $operationKey,'revision' => $rev,'state' => 'staged',
             'document_key' => $doc['document_key']];
+    }
+
+    public function findWriteOperation(Scope $scope, $legacyId, $operationKey)
+    {
+        if (!isset($this->ops[$operationKey])
+            || $this->ops[$operationKey]['legacy_id'] !== $legacyId
+            || !$this->ops[$operationKey]['scope']->equals($scope)) {
+            return null;
+        }
+        return $this->ops[$operationKey];
+    }
+
+    public function latestVisibleVersion(Scope $scope, $legacyId)
+    {
+        $document = $this->document($scope, $legacyId);
+        if ($document['deleted_at'] !== null) {
+            throw new RuntimeException('Document not published');
+        }
+        $revision = $document['pending_revision'] !== null
+            ? $document['pending_revision'] : $document['current_revision'];
+        if ($revision < 1) {
+            throw new RuntimeException('Document not published');
+        }
+        foreach ($this->ops as $op) {
+            if ($op['legacy_id'] === $legacyId && $op['revision'] === $revision) {
+                $op['state'] = $op['status'] === 'finalized' ? 'committed' : 'pending';
+                return $op;
+            }
+        }
+        throw new RuntimeException('Visible document version missing its audit record');
     }
 
     public function tombstone(Scope $scope, $legacyId)
@@ -237,6 +280,17 @@ final class FakeMvpRemoteDocuments implements RemoteDocuments
             : $this->versions[$path]['bytes'];
     }
 
+    public function downloadPending(Scope $scope, $documentKey, $operationKey)
+    {
+        $path = $this->path($scope, $documentKey, $operationKey);
+        if (!isset($this->versions[$path])) {
+            throw new RuntimeException('Document version unavailable');
+        }
+        return $this->corruptDownloadedBytes
+            ? $this->versions[$path]['bytes'] . 'tampered'
+            : $this->versions[$path]['bytes'];
+    }
+
     public function abort(Scope $scope, $documentKey, $operationKey)
     {
         $path = $this->path($scope, $documentKey, $operationKey);
@@ -327,20 +381,16 @@ final class MvpDocumentCoordinatorTest extends TestCase
         self::assertSame('pending', $this->coordinator->read($this->scope, $id));
     }
 
-    public function testDocumentIsInvisibleUntilSqlCommitAndReconciliation(): void
+    public function testOwnerReadAfterWriteAndCommittedReadBeforeWorker(): void
     {
         $this->ledger->begin();
         $doc = $this->coordinator->reserve($this->scope, 'synthetic-case');
         $op = $this->coordinator->write($this->scope, $doc['legacy_id'], 'bytes-v1');
         self::assertSame('staged', $op['state']);
+        self::assertSame('bytes-v1', $this->coordinator->read($this->scope, $doc['legacy_id']));
         self::assertFalse($this->reconciler->runOnce());
         $this->ledger->commit();
-        try {
-            $this->coordinator->read($this->scope, $doc['legacy_id']);
-            self::fail('Staged bytes were visible before reconciliation');
-        } catch (RuntimeException $expected) {
-            self::assertStringContainsString('not published', $expected->getMessage());
-        }
+        self::assertSame('bytes-v1', $this->coordinator->read($this->scope, $doc['legacy_id']));
         self::assertTrue($this->reconciler->runOnce());
         self::assertSame('bytes-v1', $this->coordinator->read($this->scope, $doc['legacy_id']));
         self::assertFalse($this->reconciler->runOnce());
@@ -405,12 +455,8 @@ final class MvpDocumentCoordinatorTest extends TestCase
         $id = $this->reserveAndStage('expected');
         $this->remote->corruptFinalizedMetadata = true;
         self::assertFalse($this->reconciler->runOnce());
-        try {
-            $this->coordinator->read($this->scope, $id);
-            self::fail('Mismatched checksum was published');
-        } catch (RuntimeException $expected) {
-            self::assertStringContainsString('not published', $expected->getMessage());
-        }
+        self::assertSame('expected', $this->coordinator->read($this->scope, $id));
+        self::assertSame('staged', array_values($this->ledger->ops)[0]['status']);
     }
 
     public function testDownloadChecksumMismatchNeverReturnsWrongBytes(): void
@@ -432,7 +478,7 @@ final class MvpDocumentCoordinatorTest extends TestCase
         $this->ledger->commit();
         self::assertSame(2, $second['revision']);
         // During an update the last committed version remains readable.
-        self::assertSame('v1', $this->coordinator->read($this->scope, $id));
+        self::assertSame('v2', $this->coordinator->read($this->scope, $id));
         self::assertTrue($this->reconciler->runOnce());
         self::assertSame('v2', $this->coordinator->read($this->scope, $id));
         self::assertCount(2, $this->remote->versions);
