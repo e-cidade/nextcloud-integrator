@@ -241,12 +241,41 @@ implicit/existing SQL transaction, exact bytes written, file extraction,
 return types, deletion, rollback and rejection outside transactions. No
 municipal dumps, customer instances or deployments are involved.
 
-This additional source-level runtime test does **not** boot the full ERP,
-exercise Laravel/E-Storage flows or establish that a fork adapter already
-consumes the SPI v1. The existing `modules/*/DBLargeObject.php` still
-reference the historical experimental `LargeObjectBridge/DocumentClient`,
-which returns a Nextcloud file ID as a legacy OID and must **not** be mistaken
-for the new transactional SPI. No fork is authorized to activate it. Actual
-functional homologation requires a controlled, synthetic, disposable ERP
-runtime and a fork adapter wired to `AdapterStorageV1`; issue #18 must not be
-closed on a false positive from the legacy facade alone.
+The shared `LargeObjectBridge` now supports explicit `bind()` to the same
+`AdapterServiceV1`, `AdapterContext`, and `PgDocumentLedger` instance used by
+`DocumentCoordinator`, and verifies that the ledger owns the **exact** global
+ERP PostgreSQL connection. With SPI bound, `criaOID()` allocates the SQL
+logical OID (never the Nextcloud `file_id`), and `escrita`, `writeContent`,
+`leitura`, `exclusao` and Contass `gerarArquivoOid` translate their legacy
+return types into shared journal/HTTPS operations. No manifest automatically
+binds it; the unbound old `DocumentClient` remains explicitly experimental
+and `ECIDADE_POC_CLIENT=1` is required to access its historical lab API.
+It must never be deployed as a production fallback.
+
+The three-way source runtime matrix now also exercises each replacement
+facade **through** SPI v1, the real synthetic PostgreSQL journal and the
+common reconciler, using the fork's actual PHP interpreter and a fake
+remote service. `tests/nextcloud/ledger-http-contract.php` separately drives
+the DBSeller facade through SPI, PostgreSQL 11, HTTPS and Nextcloud 35,
+including concurrent denial, rollback, principal revocation and delete.
+These tests do **not** boot a full municipal ERP or cover direct `pg_lo_*`,
+Laravel Storage, E-Storage or `bytea` callsites; no production readiness or
+complete fork certification is claimed.
+
+For integration, the ERP must inject the SPI explicitly **after** verifying
+its pinned source revision and resolving an authenticated `AdapterContext`.
+Bind the same `PgDocumentLedger` used by the coordinator and the transaction
+connection exposed as `$conn` by the fork. A trusted `DocumentAccessPolicy`
+implementation must validate the session, actor, installation and municipality
+against ERP-side authority. The manifest must explicitly authorize the
+persistent-document surface; the current vendor manifests do not.
+
+A legacy `DBLargeObject` write has no caller-supplied idempotency key and the
+bridge therefore generates one per invocation. Uncertain HTTP results can
+leave staged orphans, which are safely reconciled or discarded; they cannot
+be treated as exactly-once writes across a retry with a new legacy call.
+Callsites requiring deterministic replay must use the SPI's supplied
+`operationKey` and durable caller intent, not guess or reuse a Nextcloud ID.
+Before closing #18, demonstrate the complete ERP bootstrap and at least one
+real business flow with synthetic data, plus explicit ACL and parent mapping
+for every capability selected for activation.

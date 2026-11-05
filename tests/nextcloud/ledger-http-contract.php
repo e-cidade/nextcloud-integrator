@@ -45,9 +45,13 @@ spl_autoload_register(static function (string $class): void {
     require_once $file;
 });
 
+use ECidade\Nextcloud\Application\AdapterServiceV1;
 use ECidade\Nextcloud\Application\DocumentCoordinator;
 use ECidade\Nextcloud\Application\DocumentReconciler;
+use ECidade\Nextcloud\Contract\DocumentAccessPolicy;
+use ECidade\Nextcloud\Domain\AdapterContext;
 use ECidade\Nextcloud\Domain\Scope;
+use ECidade\Nextcloud\LargeObjectBridge;
 use ECidade\Nextcloud\Persistence\PgDocumentLedger;
 use ECidade\Nextcloud\Transport\NextcloudMvpClient;
 
@@ -98,6 +102,18 @@ function scopedClient(Scope $scope, string $user, string $url): NextcloudMvpClie
         'ca_file' => '/synthetic-certs/cert.pem',
         'pending_read_key' => (string)getenv('ECIDADE_MVP_PENDING_READ_KEY'),
     ]);
+}
+
+/** Trusted synthetic ERP session, deliberately independent of HTTP credentials. */
+final class SyntheticHttpFacadePolicy implements DocumentAccessPolicy
+{
+    public $revoked = false;
+
+    public function allows(AdapterContext $context, $operation, $legacyId)
+    {
+        return !$this->revoked && $context->actor() === 'synthetic-actor'
+            && $context->scope()->equals(new Scope('installation-a', 'municipio-a'));
+    }
 }
 
 $scopeA = new Scope('installation-a', 'municipio-a');
@@ -255,6 +271,102 @@ try {
         $coordinatorA->read($scopeA, $outage['legacy_id']) === 'recover-later',
         'Previously committed SQL document lost after retry'
     );
+
+
+    // Complete legacy facade -> SPI -> journal -> verified HTTPS flow.
+    // This is a disposable integration fixture, not a municipal ERP bootstrap.
+    putenv('ECIDADE_ADAPTER=dbseller');
+    putenv('ECIDADE_INTEGRATOR_ROOT=' . dirname(__DIR__, 2));
+    require_once dirname(__DIR__, 2) . '/modules/dbseller/DBLargeObject.php';
+    $facadePolicy = new SyntheticHttpFacadePolicy();
+    $facadeContext = new AdapterContext(
+        $scopeA, 'dbseller', 'large-object-facade', 'synthetic-actor'
+    );
+    $facadeSpi = new AdapterServiceV1(
+        $coordinatorA, $ledger, $facadePolicy, [
+            'id' => 'dbseller', 'production_ready' => false,
+            'storage_capabilities' => [[
+                'surface' => 'large-object-facade', 'usage' => 'persistent-document',
+                'spi' => 1,
+                'operations' => ['reserve', 'create', 'read', 'update', 'delete', 'inspect'],
+            ]],
+        ]
+    );
+    $GLOBALS['conn'] = $db;
+    LargeObjectBridge::bind($facadeSpi, $facadeContext, $ledger);
+    $legacyOid = DBLargeObject::criaOID(false);
+    ensure(is_int($legacyOid) && $legacyOid >= 3000000000,
+        'Legacy facade must receive a logical SQL OID');
+    ensure(pg_transaction_status($db) === PGSQL_TRANSACTION_IDLE,
+        'Legacy facade implicit create must commit');
+    ensure(assertDenied(static function () use ($legacyOid): void {
+        DBLargeObject::writeContent('no-transaction', $legacyOid);
+    }), 'Legacy facade must reject writes without business transaction');
+
+    $facadeV1 = "synthetic-facade-https-v1\0" . str_repeat('Q', 1024);
+    $facadeV2 = "synthetic-facade-https-v2\0" . str_repeat('R', 1024);
+    $facadeTarget = tempnam(sys_get_temp_dir(), 'spi-https-');
+    try {
+        sql($db, 'BEGIN');
+        ensure(DBLargeObject::writeContent($facadeV1, $legacyOid) === strlen($facadeV1),
+            'Facade to SPI HTTPS write returned wrong byte count');
+        ensure(DBLargeObject::leitura($legacyOid, $facadeTarget) === true
+            && file_get_contents($facadeTarget) === $facadeV1,
+            'Facade cannot read staged HTTPS content in owner transaction');
+        $linkedRemoteId = (int)pg_fetch_result(sql($db,
+            'SELECT remote_file_id FROM ecidade_nextcloud.operations '
+            . 'WHERE legacy_id=' . (int)$legacyOid . '::oid AND operation_type=\'write\''
+        ), 0, 0);
+        ensure($linkedRemoteId !== $legacyOid, 'Nextcloud file ID leaked as legacy OID');
+        ensure(assertDenied(static function () use ($workerLedger, $clientA, $scopeA, $legacyOid): void {
+            (new DocumentCoordinator($workerLedger, $clientA))->read($scopeA, $legacyOid);
+        }), 'Concurrent request could read uncommitted facade bytes');
+        sql($db, 'COMMIT');
+
+        sql($db, 'BEGIN');
+        ensure(DBLargeObject::leitura($legacyOid, $facadeTarget)
+            && file_get_contents($facadeTarget) === $facadeV1,
+            'Facade cannot read committed SQL journal before worker');
+        sql($db, 'COMMIT');
+        ensure($workerA->runOnce(), 'Facade write was not finalized by common worker');
+
+        sql($db, 'BEGIN');
+        DBLargeObject::writeContent($facadeV2, $legacyOid);
+        ensure(DBLargeObject::leitura($legacyOid, $facadeTarget)
+            && file_get_contents($facadeTarget) === $facadeV2,
+            'Facade cannot read own HTTPS update');
+        sql($db, 'ROLLBACK');
+        sql($db, 'BEGIN');
+        ensure(DBLargeObject::leitura($legacyOid, $facadeTarget)
+            && file_get_contents($facadeTarget) === $facadeV1,
+            'Facade rollback exposed abandoned HTTPS version');
+        sql($db, 'COMMIT');
+
+        $facadePolicy->revoked = true;
+        sql($db, 'BEGIN');
+        ensure(assertDenied(static function () use ($legacyOid, $facadeTarget): void {
+            DBLargeObject::leitura($legacyOid, $facadeTarget);
+        }), 'Revoked ERP actor could read staged or committed content');
+        sql($db, 'ROLLBACK');
+        $facadePolicy->revoked = false;
+
+        sql($db, 'BEGIN');
+        ensure(DBLargeObject::exclusao($legacyOid), 'Legacy facade delete return mismatch');
+        sql($db, 'ROLLBACK');
+        sql($db, 'BEGIN');
+        ensure(DBLargeObject::leitura($legacyOid, $facadeTarget)
+            && file_get_contents($facadeTarget) === $facadeV1,
+            'Rollback of facade deletion lost existing document');
+        ensure(DBLargeObject::exclusao($legacyOid), 'Legacy facade delete failed');
+        sql($db, 'COMMIT');
+        sql($db, 'BEGIN');
+        ensure(assertDenied(static function () use ($legacyOid, $facadeTarget): void {
+            DBLargeObject::leitura($legacyOid, $facadeTarget);
+        }), 'Facade deletion was not visible after commit');
+        sql($db, 'ROLLBACK');
+    } finally {
+        @unlink($facadeTarget);
+    }
 
     // Pure metadata journal: not one new PostgreSQL Large Object was created.
     $after = (int)pg_fetch_result(

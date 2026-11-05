@@ -96,3 +96,5 @@ jobs:
           php tests/upstream/native-large-object-contract.php \
             "${{ matrix.fork }}" \
             "$RUNNER_TEMP/fork-original/${{ matrix.source }}"
+      - name: Exercise original facade signatures through shared SPI and SQL outbox
+        run: php tests/upstream/spi-facade-contract.php "${{ matrix.fork }}"

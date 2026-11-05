@@ -31,6 +31,12 @@ final class PgDocumentLedger implements DocumentLedger
         $this->connection = $connection;
     }
 
+    /** No detached second SQL connection may masquerade as the ERP transaction. */
+    public function usesConnection($connection)
+    {
+        return $this->connection === $connection;
+    }
+
     private function query($sql, array $params = [])
     {
         $result = @pg_query_params($this->connection, $sql, $params);

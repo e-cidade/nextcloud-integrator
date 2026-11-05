@@ -145,6 +145,18 @@ final class AdapterSpiV1Test extends TestCase
         $this->spi->read($this->contextFor('dbseller', $surface), 3000000000);
     }
 
+    public function testCoordinatorAndSpiCannotUseDifferentJournals(): void
+    {
+        $this->expectException(AdapterFailure::class);
+        $this->expectExceptionMessage('INVALID');
+        new AdapterServiceV1(
+            new DocumentCoordinator(new FakeMvpDocumentLedger(), $this->remote),
+            $this->ledger,
+            $this->policy,
+            self::manifest('dbseller')
+        );
+    }
+
     public function testUndeclaredCapabilityIsFailClosed(): void
     {
         $this->expectException(AdapterFailure::class);

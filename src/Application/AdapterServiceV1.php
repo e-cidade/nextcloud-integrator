@@ -53,9 +53,18 @@ final class AdapterServiceV1 implements AdapterStorageV1
             }
             $this->capabilities[$cap['surface']] = $cap;
         }
+        if (!$coordinator->usesLedger($ledger)) {
+            throw new AdapterFailure(AdapterFailure::INVALID);
+        }
         $this->coordinator = $coordinator;
         $this->ledger = $ledger;
         $this->policy = $policy;
+    }
+
+    /** Bind legacy transactions only to this SPI's actual metadata journal. */
+    public function usesLedger(DocumentLedger $ledger)
+    {
+        return $this->ledger === $ledger;
     }
 
     private function check(AdapterContext $context, $operation, $legacyId = null)

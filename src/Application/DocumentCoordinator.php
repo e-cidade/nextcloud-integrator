@@ -25,6 +25,12 @@ final class DocumentCoordinator
         $this->remote = $remote;
     }
 
+    /** Verify that an ERP bridge and the coordinator use one SQL journal. */
+    public function usesLedger(DocumentLedger $ledger)
+    {
+        return $this->ledger === $ledger;
+    }
+
     /** Must be called INSIDE the e-Cidade business transaction. */
     public function reserve(Scope $scope, $businessKey)
     {
