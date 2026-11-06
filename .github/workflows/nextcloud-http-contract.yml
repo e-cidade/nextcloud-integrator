@@ -78,6 +78,22 @@ jobs:
           $C up -d --wait --wait-timeout 180 nextcloud
           $C exec -T -e ECIDADE_SYNTHETIC_HTTP_TEST=1 -e "MVP_SYNTHETIC_PASSWORD=$MVP_SYNTHETIC_PASSWORD" nextcloud php /sdk/tests/nextcloud/http-contract.php restart
 
+      - name: Fetch immutable public DBSeller protocol model for real-method test
+        run: |
+          set -euo pipefail
+          root=.build/pinned-dbseller
+          mkdir -p "$root"
+          git -C "$root" init -q
+          git -C "$root" remote add origin https://github.com/e-cidade/e-cidade-DBSeller.git
+          git -C "$root" sparse-checkout init --no-cone
+          git -C "$root" sparse-checkout set --no-cone \
+            /ecidade/std/DBLargeObject.php \
+            /ecidade/model/protocolo/ProcessoDocumento.model.php
+          git -C "$root" fetch --depth 1 --filter=blob:none origin \
+            7fab5ac38b19dbd842ca81a259186c613c90f3c1
+          git -C "$root" checkout --quiet --detach FETCH_HEAD
+          php bin/integrator.php verify-pinned dbseller "$root"
+
       - name: Verify PHP SDK over trusted HTTPS and transactional PostgreSQL
         run: |
           C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
@@ -86,6 +102,12 @@ jobs:
           $I up -d --wait --wait-timeout 120 tls-proxy mvp-db-ci0001
           $I build ledger-runner
           $I run --rm --no-deps -e ECIDADE_MVP_PENDING_READ_KEY="$MVP_SYNTHETIC_PENDING_KEY" ledger-runner
+          $I run --rm --no-deps \
+            -e ECIDADE_SYNTHETIC_FORK_CONTRACT=1 \
+            -e ECIDADE_MVP_PENDING_READ_KEY="$MVP_SYNTHETIC_PENDING_KEY" \
+            --entrypoint php ledger-runner \
+            /sdk/tests/upstream/dbseller-protocolo-contract.php \
+            /sdk/.build/pinned-dbseller/ecidade/model/protocolo/ProcessoDocumento.model.php
 
       - name: Revoke synthetic account and deny further access
         run: |

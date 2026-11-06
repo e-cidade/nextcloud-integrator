@@ -28,6 +28,26 @@ arquivos PHP da distribuição. A existência de uma classe não demonstra
 quais módulos municipais a executam. Não é correto declarar 100% de
 cobertura com base nessa tabela.
 
+## Evidência adicional: documento de processo (Protocolo)
+
+A revisão pública contém `ecidade/model/protocolo/ProcessoDocumento.model.php`.
+Os métodos de negócio `salvar`, `download` e `excluir` usam a fachada
+`DBLargeObject` quando `p01_estorage` representa armazenamento legado. O
+campo `p01_documento` do registro do processo é uma referência OID, que deve
+continuar sendo identidade lógica do ERP, não o `file_id` do Nextcloud.
+
+Uma suíte sintética exercita o **modelo original** em PHP 5.6 com DAO de teste,
+PostgreSQL 11 e o SPI compartilhado, também sobre HTTPS/Nextcloud 35 na CI.
+Não utiliza o bootstrap integral, o DAO original ou uma base municipal. O
+resultado cobre o método de negócio selecionado, mas não prova que todas as
+rotas HTTP do ERP chegam a essa classe.
+
+Foi identificada uma exceção relevante: `isStorage()` do modelo original faz
+comparações frouxas, podendo tratar o texto PostgreSQL `f` como verdadeiro e
+consultar E-Storage antes de recorrer à fachada OID. O teste usa um bloqueio
+sintético para essa tentativa, sem rede. Corrigir ou autorizar explicitamente
+o comportamento no fork é condição para homologação, não um detalhe de teste.
+
 ## Inventariador não invasivo
 
 `bin/inventory.php` faz uma leitura local de **código-fonte
