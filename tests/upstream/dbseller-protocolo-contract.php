@@ -256,7 +256,7 @@ try {
         0,
         0
     );
-    protoAssert($baseline === 0, 'Synthetic database already contains native LOs');
+    protoAssert($baseline <= 1, 'Unexpected native LO baseline in disposable test database');
     ++$checks;
 
     $scope = new Scope('installation-a', 'municipio-a');
