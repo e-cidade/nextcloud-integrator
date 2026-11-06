@@ -45,6 +45,37 @@ to the pre-correction public revisions, since their source PRs require review.
 | `db/migrations/*` / `integracao_externa/*/db/*` containing `bytea` | **Schema definitions; not demonstrated document payloads** | Inspect business columns and read/write callsites before classifying as durable document storage. A textual `bytea` hit is insufficient. |
 | `DBFileUpload.php`, temporary `tmp/` exports and generic `file_put_contents` | **Temporary, output or unknown until traced** | Must not be indiscriminately redirected to persistent Nextcloud storage. The Protocolo fixture cleans up its exports. |
 
+## Generated-DAO execution: critical difference from model-only tests
+
+The public `classes/db_protprocessodocumento_classe.php` from the DBSeller
+and CPD distributions is now loaded **unmodified** alongside each original
+`ProcessoDocumento.model.php`. The disposable PHP 5.6/PostgreSQL 11
+contract runs the actual generated insert/query/delete SQL against a minimal,
+synthetic business table, its sequence and `db_usuarios` fixture; the only
+SQL-side seam disables the original audit/session table requirement.
+It uses the **same shared SPI and worker**, but this is not the real ERP
+bootstrap, authentication/session or actual municipal database schema.
+
+The generated DAO coerces `p01_estorage` to SQL TRUE/FALSE using PHP
+truthiness. The legacy model passes the nonempty string `"false"`, so an
+OID-backed attachment is inserted as `p01_estorage=TRUE`. This is **not**
+merely a false-positive read of PostgreSQL's textual `f`: the stored
+business metadata itself is wrong. On reload the model tries E-Storage,
+then may fall back to the OID facade. DBSeller's original `excluir()`
+unconditionally tombstones the OID; CPD's original `excluir()` instead
+sees `isStorage()==true`, skips the tombstone and leaves a remotely
+readable document even though the SQL business row was removed.
+
+The new pinned regression test reproduces both legacy behaviors and also
+accepts **explicitly hash-verified proposed source fixes** for lab preview.
+Proposed DBSeller #2 and CPD #1 must interpret stored textual booleans
+strictly **and pass a real boolean to the generated DAO at creation**. In
+synthetic tests both proposed fixes preserve the correct OID, prevent the
+unexpected E-Storage lookup and restore expected SQL/document deletion.
+Those previews are **not** a production certification or upstream approval;
+review-protected source PRs must be merged before the integrator manifests
+can be repinned and positive assertions enabled as the CI acceptance gate.
+
 ## Blocking observed source semantics
 
 **DBSeller and CPD:** the pinned Protocolo `isStorage()` uses loose

@@ -48,6 +48,23 @@ consultar E-Storage antes de recorrer à fachada OID. O teste usa um bloqueio
 sintético para essa tentativa, sem rede. Corrigir ou autorizar explicitamente
 o comportamento no fork é condição para homologação, não um detalhe de teste.
 
+## Nova evidência: DAO gerado original
+
+O teste `tests/upstream/protocolo-generated-dao-contract.php` executa o
+DAO gerado original `ecidade/classes/db_protprocessodocumento_classe.php`
+em conjunto com o modelo original, ambos verificados por hash, com
+PostgreSQL 11 sintético e o SPI compartilhado. Foi observado que o modelo
+envia `"false"` como string para `p01_estorage`, e o DAO a
+converte em SQL `TRUE` por coerção booleana do PHP. O documento foi
+armazenado pela fachada OID, mas identificado como E-Storage no registro.
+No código DBSeller, a exclusão ainda executa o tombstone do OID.
+A correção da classificação e do envio do booleano está proposta em
+`e-cidade/e-cidade-DBSeller#2`, pendente de revisão obrigatória.
+
+Esse experimento utiliza **o DAO real**, mas um esquema simplificado e
+sessão/auditoria simuladas: não equivale ao bootstrap completo do ERP.
+O manifesto permanece `production_ready=false`.
+
 ## Inventariador não invasivo
 
 `bin/inventory.php` faz uma leitura local de **código-fonte

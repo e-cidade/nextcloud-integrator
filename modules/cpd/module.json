@@ -36,6 +36,13 @@
         "path": "model/protocolo/ProcessoDocumento.model.php",
         "git_blob": "b2b62a1cfc49bc402f5a10a4b063219ec7f230e6"
       }
+    },
+    {
+      "type": "source-signature",
+      "source": {
+        "path": "classes/db_protprocessodocumento_classe.php",
+        "git_blob": "9e130f3a86377bc17b8e7833c6b54a5d5d782939"
+      }
     }
   ]
 }
