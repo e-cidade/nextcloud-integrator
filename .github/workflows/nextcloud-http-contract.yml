@@ -94,7 +94,7 @@ jobs:
           git -C "$root" checkout --quiet --detach FETCH_HEAD
           php bin/integrator.php verify-pinned dbseller "$root"
           for spec in \
-            'contass e-cidade-Contass 28e2a797dd0d14d3f7ea918d3ce06add154ec381' \
+            'contass e-cidade-Contass 90081bf22993292ad197134fe1617cace968a984' \
             'cpd e-cidade-CPD 39cce22ed59cda56edbbeb3b746e692ab7d66fcb'; do
             read -r fork repository revision <<< "$spec"
             root=".build/pinned-$fork"

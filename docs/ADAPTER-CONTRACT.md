@@ -242,10 +242,11 @@ They do not replace the original DAO, application bootstrap or municipal
 schema, and do not certify E-Storage, filesystem, Laravel storage or direct
 native PostgreSQL calls.
 
-Source-level caveats are tracked in the fork documentation: Contass assigns
-`iOi` rather than `iOid` on creation, and the CPD model can skip its
-large-object deletion if PostgreSQL's text `f` is treated as truthy by
-`isStorage()`. The CPD negative test proves the bypass, then normalizes the
+Source-level caveats are tracked in the fork documentation: the older
+Contass model assigned `iOi` instead of `iOid` on creation (corrected in
+`e-cidade/e-cidade-Contass#22` and covered by the new pinned test). The
+CPD model can still skip its large-object deletion if PostgreSQL's text
+`f` is treated as truthy by `isStorage()`. The CPD negative test proves the bypass, then normalizes the
 **synthetic fixture only**; the vendor-side behavior remains a blocker for
 functional approval. No adapter is production-enabled by these tests.
 

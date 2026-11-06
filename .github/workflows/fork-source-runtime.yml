@@ -35,7 +35,7 @@ jobs:
           - fork: contass
             php: '7.4'
             repository: e-cidade-Contass
-            commit: 28e2a797dd0d14d3f7ea918d3ce06add154ec381
+            commit: 90081bf22993292ad197134fe1617cace968a984
             source: std/DBLargeObject.php
           - fork: cpd
             php: '5.6'

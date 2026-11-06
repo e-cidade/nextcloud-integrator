@@ -5,7 +5,7 @@
   "version": "0.1.0-lab",
   "tested": true,
   "min_php": "7.4.0",
-  "upstream": "e-cidade/e-cidade-Contass@28e2a797dd0d14d3f7ea918d3ce06add154ec381",
+  "upstream": "e-cidade/e-cidade-Contass@90081bf22993292ad197134fe1617cace968a984",
   "capabilities": [
     "large-object-facade"
   ],
@@ -37,7 +37,7 @@
       "type": "source-signature",
       "source": {
         "path": "model/protocolo/ProcessoDocumento.model.php",
-        "git_blob": "00b9a9d35703f8ebbe1076310d77f88bf24633fc"
+        "git_blob": "2eb3782e84400d40bae177d598445e26140ddf93"
       }
     }
   ]
