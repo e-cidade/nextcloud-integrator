@@ -21,6 +21,37 @@ Pinned source: `e-cidade/e-cidade-DBSeller@7fab5ac38b19dbd842ca81a259186c613c90f
 
 This is **not a complete inventory** of direct `pg_lo_*`, `bytea`, or filesystem usage. Use read-only `bin/inventory.php` on the verified public checkout and classify call chains, not just string matches. The manifest verifies one override file, not the whole ERP.
 
+## Executable Protocolo business-model contract (issue #6)
+
+The pinned upstream `ecidade/model/protocolo/ProcessoDocumento.model.php`
+(`4935e0514c8b206853f071d60612647503cedb99` Git blob at the manifest
+commit) is an actual municipal document annex flow. Its `salvar()`,
+`download()`, `alterar()` and `excluir()` methods call `DBLargeObject`
+when the document uses legacy OID storage. The original model is **not**
+reimplemented or vendored: CI fetches it from its pinned public commit,
+verifies the source fingerprint, and loads it unchanged.
+
+`tests/upstream/dbseller-protocolo-contract.php` calls those real business
+methods on PHP 5.6 with a minimal, explicitly synthetic `cl_protprocessodocumento`
+DAO, PostgreSQL 11, the shared SPI, outbox and worker. It exercises a
+business table whose `p01_documento` column retains the logical `oid`, a
+separate SQL reader, read-after-COMMIT, content and metadata updates,
+rollback, ACL revocation, delete/tombstone, temporary file cleanup, and
+checksums without native PostgreSQL LOs or `bytea`. The same test runs
+with an actual Nextcloud 35 HTTPS backend in the isolated HTTP CI job.
+It still does **not** initialize the entire original ERP bootstrap, its
+original generated DAO or municipal schema, and thus is not a certified
+end-to-end UI/user-journey test.
+
+**Confirmed upstream branch hazard:** PostgreSQL returns a boolean `false`
+as string `f`; `ProcessoDocumento::isStorage()` compares that string with
+`true` using loose equality, and can first call `StorageHelper::downloadArquivo`
+even when the record is not E-Storage. The synthetic boundary deliberately
+throws and the model falls back to the original `DBLargeObject` method.
+This behavior requires an explicit vendor-side correction or an approved
+compatibility adapter before activation. Never configure a real E-Storage
+endpoint for this test.
+
 ## Blocking shared-core contracts (Front 1)
 
 The shared `DocumentClient` provides `reserve/write/read/inspect/remove` only. It does not carry or enforce E-Storage `allowed[]` principal identity, `file_father`, stable E-Storage IDs, MIME/metadata policy or immutable transactional replacement; the signing controller additionally calls `/files/sign` and `/signers`. No E-Storage override should be enabled until these contracts are safely implemented and authorized. Silently dropping `allowed[]` is a security defect.

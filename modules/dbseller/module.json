@@ -30,6 +30,13 @@
       "target": "std/DBLargeObject.php",
       "replacement": "DBLargeObject.php",
       "contract": "DBLargeObject"
+    },
+    {
+      "type": "source-signature",
+      "source": {
+        "path": "ecidade/model/protocolo/ProcessoDocumento.model.php",
+        "git_blob": "4935e0514c8b206853f071d60612647503cedb99"
+      }
     }
   ]
 }

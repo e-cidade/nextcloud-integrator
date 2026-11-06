@@ -54,6 +54,16 @@ outra chamada do E-Storage passa por essa fachada.
    fiscais desnecessários. É necessária uma lista de metadados
    permitidos por tipo, com auditoria e política de retenção.
 
+## Risco de seleção incorreta no Protocolo
+
+No `ProcessoDocumento` público, o valor PostgreSQL `f` da coluna booleana
+`p01_estorage` pode ser interpretado como verdadeiro pelo `isStorage()`
+devido a uma comparação não estrita. Nesses casos, `download()` tenta
+E-Storage antes de executar o fallback `DBLargeObject`. A suíte sintética
+bloqueia E-Storage e verifica o fallback; ela **não** aprova esse desvio
+para uso municipal. Corrigir a coerção ou a interpretação do campo no
+fork, com testes PHP 5.6, é pré-requisito para ativar o caminho novo.
+
 ## Aceite mínimo por mantenedor
 
 - Matriz de usuários/grupos e testes negativos de `allowed[]`.
