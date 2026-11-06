@@ -18,18 +18,27 @@ if (PHP_SAPI !== 'cli' || getenv('ECIDADE_SYNTHETIC_FORK_CONTRACT') !== '1'
     fwrite(STDERR, "Refusing non-synthetic protocol document fixture\n");
     exit(2);
 }
+$fork = isset($argv[2]) ? $argv[2] : 'dbseller';
+$pinnedModelHashes = [
+    'dbseller' => '4935e0514c8b206853f071d60612647503cedb99',
+    'contass' => '00b9a9d35703f8ebbe1076310d77f88bf24633fc',
+    'cpd' => 'b2b62a1cfc49bc402f5a10a4b063219ec7f230e6',
+];
+if (!isset($pinnedModelHashes[$fork])) {
+    throw new RuntimeException('Unknown pinned protocol fork');
+}
 $source = isset($argv[1]) ? $argv[1] : '';
 if (basename($source) !== 'ProcessoDocumento.model.php' || !is_file($source)) {
     throw new RuntimeException('Pinned public protocol model is required');
 }
 $original = file_get_contents($source);
 $blob = sha1('blob ' . strlen($original) . "\0" . $original);
-if ($blob !== '4935e0514c8b206853f071d60612647503cedb99') {
+if ($blob !== $pinnedModelHashes[$fork]) {
     throw new RuntimeException('Public protocol model differs from pinned revision');
 }
 $source = realpath($source);
 $root = dirname(dirname(__DIR__));
-putenv('ECIDADE_ADAPTER=dbseller');
+putenv('ECIDADE_ADAPTER=' . $fork);
 putenv('ECIDADE_INTEGRATOR_ROOT=' . $root);
 spl_autoload_register(function ($class) use ($root) {
     $prefix = 'ECidade\\Nextcloud\\';
@@ -42,7 +51,7 @@ spl_autoload_register(function ($class) use ($root) {
     }
 });
 require_once $root . '/tests/fixtures/FakeRemoteDocuments.php';
-require_once $root . '/tests/fixtures/SyntheticDbSellerStorageHelper.php';
+require_once $root . '/tests/fixtures/SyntheticProtocolStorageHelper.php';
 date_default_timezone_set('UTC');
 
 use ECidade\Nextcloud\Application\AdapterServiceV1;
@@ -58,9 +67,10 @@ use ECidade\Nextcloud\Transport\NextcloudMvpClient;
 class SyntheticProtocolPolicy implements DocumentAccessPolicy
 {
     public $revoked = false;
+    public $fork = 'dbseller';
     public function allows(AdapterContext $context, $operation, $legacyId)
     {
-        return !$this->revoked && $context->backend() === 'dbseller'
+        return !$this->revoked && $context->backend() === $this->fork
             && $context->actor() === 'synthetic-protocol-actor'
             && $context->scope()->equals(new Scope('installation-a', 'municipio-a'));
     }
@@ -99,16 +109,25 @@ function _M($key, $args = null)
 {
     return $key;
 }
+function db_getsession($name)
+{
+    if ($name !== 'DB_coddepto') {
+        throw new RuntimeException('Unexpected synthetic session field');
+    }
+    return 7;
+}
+
 function modification($source)
 {
     if ($source !== 'std/DBLargeObject.php') {
         throw new RuntimeException('Unverified original model dependency');
     }
-    return dirname(dirname(__DIR__)) . '/modules/dbseller/DBLargeObject.php';
+    return dirname(dirname(__DIR__)) . '/modules/' . getenv('ECIDADE_ADAPTER') . '/DBLargeObject.php';
 }
 function protoSql($sql, array $params = [])
 {
-    global $conn;
+    global $conn, $fork;
+    $sql = str_replace('synthetic_protocolo', 'synthetic_protocolo_' . $fork, $sql);
     $result = count($params) ? @pg_query_params($conn, $sql, $params) : @pg_query($conn, $sql);
     if ($result === false) {
         throw new RuntimeException('Synthetic protocol SQL failed');
@@ -130,6 +149,15 @@ function protoDenied($callback)
     }
     return false;
 }
+function protoWriteContent($bytes, $oid, $file)
+{
+    if (getenv('ECIDADE_ADAPTER') === 'contass') {
+        file_put_contents($file, $bytes);
+        return DBLargeObject::escrita($file, $oid);
+    }
+    return DBLargeObject::writeContent($bytes, $oid);
+}
+
 class db_utils
 {
     public static function inTransaction($connection = null)
@@ -171,19 +199,25 @@ class cl_protprocessodocumento
     public $p01_assinado;
     public $p01_assinado_por;
     public $p01_documento_hash;
+    public $p01_depart;
+    public $p01_nivelacesso;
 
     public function incluir($unused)
     {
         $sql = 'INSERT INTO synthetic_protocolo.documents '
             . '(p01_protprocesso,p01_descricao,p01_documento,p01_nomedocumento,'
             . 'p01_data,p01_usuario,p01_procandamint,p01_estorage,'
-            . 'p01_ordem,p01_assinado,p01_assinado_por,p01_documento_hash) '
-            . 'VALUES ($1,$2,$3::oid,$4,$5,$6,$7,$8::boolean,$9,$10,$11,$12) RETURNING p01_sequencial';
+            . 'p01_ordem,p01_assinado,p01_assinado_por,p01_documento_hash,'
+            . 'p01_depart,p01_nivelacesso) '
+            . 'VALUES ($1,$2,$3::oid,$4,$5,$6,$7,$8::boolean,$9,$10,$11,$12,$13,$14) '
+            . 'RETURNING p01_sequencial';
         $result = protoSql($sql, [
             $this->p01_protprocesso, $this->p01_descricao, $this->p01_documento,
             $this->p01_nomedocumento, $this->p01_data, $this->p01_usuario,
-            $this->p01_procandamint, $this->p01_estorage, $this->p01_ordem,
-            $this->p01_assinado, $this->p01_assinado_por, $this->p01_documento_hash,
+            $this->p01_procandamint,
+            $this->p01_estorage === null ? 'false' : $this->p01_estorage,
+            $this->p01_ordem, $this->p01_assinado, $this->p01_assinado_por,
+            $this->p01_documento_hash, $this->p01_depart, $this->p01_nivelacesso,
         ]);
         $this->p01_sequencial = (int)pg_fetch_result($result, 0, 0);
     }
@@ -192,18 +226,28 @@ class cl_protprocessodocumento
     {
         protoSql(
             'UPDATE synthetic_protocolo.documents '
-            . 'SET p01_descricao=$1,p01_nomedocumento=$2,p01_documento=$3::oid,'
-            . 'p01_assinado=$4,p01_assinado_por=$5,p01_ordem=$6,p01_documento_hash=$7 '
+            . 'SET p01_descricao=$1,p01_nomedocumento=COALESCE($2,p01_nomedocumento),'
+            . 'p01_documento=COALESCE($3::oid,p01_documento),'
+            . 'p01_assinado=COALESCE($4,p01_assinado),'
+            . 'p01_assinado_por=COALESCE($5,p01_assinado_por),'
+            . 'p01_ordem=COALESCE($6,p01_ordem),'
+            . 'p01_documento_hash=COALESCE($7,p01_documento_hash),'
+            . 'p01_nivelacesso=COALESCE($9,p01_nivelacesso) '
             . 'WHERE p01_sequencial=$8',
             [$this->p01_descricao,$this->p01_nomedocumento,$this->p01_documento,
                 $this->p01_assinado,$this->p01_assinado_por,$this->p01_ordem,
-                $this->p01_documento_hash,$id]
+                $this->p01_documento_hash,$id,$this->p01_nivelacesso]
         );
     }
 
     public function excluir($id)
     {
         protoSql('DELETE FROM synthetic_protocolo.documents WHERE p01_sequencial=$1', [$id]);
+    }
+
+    public function sql_query_file($id)
+    {
+        return $this->sql_query_documento_usuario($id);
     }
 
     public function sql_query_documento_usuario($id)
@@ -232,6 +276,17 @@ if (!mkdir($workspace, 0700) || !mkdir($workspace . '/tmp', 0700)) {
 }
 $oldCwd = getcwd();
 chdir($workspace);
+// Contass includes the facade directly (no modification() hook). Recreate
+// that override in a disposable synthetic filesystem, never in a fork tree.
+if ($fork === 'contass') {
+    if (!mkdir($workspace . '/std', 0700)) {
+        throw new RuntimeException('Cannot prepare synthetic Contass facade path');
+    }
+    file_put_contents(
+        $workspace . '/std/DBLargeObject.php',
+        '<?php require_once ' . var_export($root . '/modules/contass/DBLargeObject.php', true) . ';'
+    );
+}
 
 $checks = 0;
 try {
@@ -247,10 +302,11 @@ try {
     protoSql('CREATE TABLE synthetic_protocolo.documents ('
         . 'p01_sequencial serial PRIMARY KEY, p01_protprocesso bigint NOT NULL, '
         . 'p01_descricao text NOT NULL, p01_documento oid NOT NULL, '
-        . 'p01_nomedocumento text NOT NULL, p01_data date NOT NULL, '
-        . 'p01_usuario integer NOT NULL, p01_procandamint integer, '
+        . 'p01_nomedocumento text NOT NULL, p01_data date, '
+        . 'p01_usuario integer, p01_procandamint integer, '
         . 'p01_estorage boolean NOT NULL DEFAULT false, p01_ordem integer, '
-        . 'p01_assinado boolean, p01_assinado_por text, p01_documento_hash text)');
+        . 'p01_assinado boolean, p01_assinado_por text, '
+        . 'p01_documento_hash text, p01_depart integer, p01_nivelacesso integer)');
     $baseline = (int)pg_fetch_result(
         protoSql('SELECT count(*) FROM pg_largeobject_metadata'),
         0,
@@ -278,14 +334,15 @@ try {
     $coordinator = new DocumentCoordinator($ledger, $remote);
     $worker = new DocumentReconciler($readerLedger, $remote, $scope);
     $policy = new SyntheticProtocolPolicy();
+    $policy->fork = $fork;
     $context = new AdapterContext(
         $scope,
-        'dbseller',
+        $fork,
         'large-object-facade',
         'synthetic-protocol-actor'
     );
     $manifest = [
-        'id' => 'dbseller','production_ready' => false,
+        'id' => $fork,'production_ready' => false,
         'storage_capabilities' => [[
             'surface' => 'large-object-facade', 'usage' => 'persistent-document',
             'spi' => 1,
@@ -307,17 +364,22 @@ try {
     $model = new ProcessoDocumento();
     $model->setProcessoProtocolo(new processoProtocolo(850034));
     $model->setDescricao('Synthetic protocol annex');
-    $model->setUsuario(new UsuarioSistema(1001));
+    if ($fork !== 'contass') {
+        $model->setUsuario(new UsuarioSistema(1001));
+        $model->setOrdem(1);
+    }
     $model->setCaminhoArquivo($input);
-    $model->setOrdem(1);
 
     protoSql('BEGIN');
     protoAssert((bool)$model->salvar(), 'Original protocol incluir failed');
     $docId = $model->getCodigo();
-    $oid = $model->getOID();
-    protoAssert($docId > 0 && $oid >= 3000000000, 'Invalid protocol business ID or logical OID');
     $business = protoSql('SELECT p01_documento::text FROM synthetic_protocolo.documents '
         . 'WHERE p01_sequencial=' . (int)$docId);
+    $oid = (int)pg_fetch_result($business, 0, 0);
+    protoAssert($docId > 0 && $oid >= 3000000000, 'Invalid protocol business ID or logical OID');
+    if ($fork !== 'contass') {
+        protoAssert($model->getOID() === $oid, 'Original model OID differs from business record');
+    }
     protoAssert(
         (int)pg_fetch_result($business, 0, 0) === $oid,
         'Original model did not persist logical OID into business record'
@@ -346,7 +408,7 @@ try {
     // The upstream model attempts E-Storage for PostgreSQL's textual 'f'.
     // Our test boundary must reject this and the legacy fallback must work.
     protoAssert(
-        \App\Domain\Configuracao\Helpers\StorageHelper::$attempts > 0,
+        $fork === 'contass' || \App\Domain\Configuracao\Helpers\StorageHelper::$attempts > 0,
         'Pinned model no longer follows expected false-string fallback'
     );
     protoSql('COMMIT');
@@ -376,7 +438,7 @@ try {
     // immutable version 2 without changing the protocol's persisted OID.
     $replacement = "synthetic-protocol-updated\0" . str_repeat('Y', 4096);
     protoSql('BEGIN');
-    DBLargeObject::writeContent($replacement, $oid);
+    protoWriteContent($replacement, $oid, $input);
     $pendingPath = $loaded->download();
     protoAssert(
         file_get_contents($pendingPath) === $replacement,
@@ -391,7 +453,7 @@ try {
     ++$checks;
 
     protoSql('BEGIN');
-    DBLargeObject::writeContent($replacement, $oid);
+    protoWriteContent($replacement, $oid, $input);
     protoSql('COMMIT');
     protoAssert(
         $spi->read($context, $oid) === $replacement,
@@ -420,6 +482,29 @@ try {
     protoSql('ROLLBACK');
     $policy->revoked = false;
     ++$checks;
+
+    // CPD checks isStorage() when deciding whether to unlink the legacy OID.
+    // Raw PostgreSQL boolean text 'f' is truthy in that original method,
+    // so demonstrate the bypass and then make the *fixture* explicitly typed.
+    // This does not fix the vendor's original code or certify its deploy.
+    if ($fork === 'cpd') {
+        protoAssert(
+            $loaded->isStorage() === true,
+            'CPD raw PostgreSQL boolean coercion hazard was not reproduced'
+        );
+        protoSql('BEGIN');
+        protoAssert($loaded->excluir() === true, 'CPD original delete did not run');
+        protoAssert(
+            $spi->read($context, $oid) === $replacement,
+            'Unexpected tombstone: CPD original still has boolean storage bypass'
+        );
+        protoSql('ROLLBACK');
+        $loaded->setStorage(false); // Explicit synthetic DAO normalization.
+        protoAssert(
+            $loaded->isStorage() === false,
+            'CPD synthetic boolean normalization was ineffective'
+        );
+    }
 
     // Original business deletion must remove the SQL record and tombstone
     // its logical OID in the same transaction; rollback restores both.
@@ -451,11 +536,16 @@ try {
     $uncommitted = new ProcessoDocumento();
     $uncommitted->setProcessoProtocolo(new processoProtocolo(850035));
     $uncommitted->setDescricao('Rolled-back protocol annex');
-    $uncommitted->setUsuario(new UsuarioSistema(1001));
+    if ($fork !== 'contass') {
+        $uncommitted->setUsuario(new UsuarioSistema(1001));
+    }
     $uncommitted->setCaminhoArquivo($input);
     protoSql('BEGIN');
     protoAssert((bool)$uncommitted->salvar(), 'Rollback candidate not staged');
-    $rolledId = $uncommitted->getOID();
+    $rolledId = (int)pg_fetch_result(protoSql(
+        'SELECT p01_documento::text FROM synthetic_protocolo.documents '
+        . 'WHERE p01_sequencial=' . (int)$uncommitted->getCodigo()
+    ), 0, 0);
     protoSql('ROLLBACK');
     protoAssert(protoDenied(function () use ($spi, $context, $rolledId) {
         $spi->read($context, $rolledId);
@@ -490,7 +580,7 @@ try {
         'Original protocol temporary download was not released'
     );
     ++$checks;
-    echo 'PASS pinned DBSeller ProcessoDocumento actual business methods -> SPI v1'
+    echo 'PASS pinned ' . $fork . ' ProcessoDocumento actual business methods -> SPI v1'
         . ($liveHttps ? ' -> Nextcloud HTTPS' : ' -> synthetic remote')
         . ' -> synthetic SQL outbox -> shared worker, PHP ' . PHP_VERSION
         . ' checks=' . $checks . "\n";
@@ -505,6 +595,10 @@ try {
         unlink($workspace . '/attachment.pdf');
     }
     @rmdir($workspace . '/tmp');
+    if ($fork === 'contass') {
+        @unlink($workspace . '/std/DBLargeObject.php');
+        @rmdir($workspace . '/std');
+    }
     @rmdir($workspace);
     pg_close($reader);
     pg_close($conn);

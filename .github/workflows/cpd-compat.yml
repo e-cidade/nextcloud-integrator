@@ -26,7 +26,7 @@ jobs:
         run: |
           git clone --no-checkout --filter=blob:none https://github.com/e-cidade/e-cidade-CPD.git "$RUNNER_TEMP/cpd-synthetic"
           git -C "$RUNNER_TEMP/cpd-synthetic" sparse-checkout init --no-cone
-          git -C "$RUNNER_TEMP/cpd-synthetic" sparse-checkout set --no-cone /std/DBLargeObject.php /std/Modification.php /FrontController.php /index.php /DBFileUpload.php
+          git -C "$RUNNER_TEMP/cpd-synthetic" sparse-checkout set --no-cone /std/DBLargeObject.php /std/Modification.php /FrontController.php /index.php /DBFileUpload.php /model/protocolo/ProcessoDocumento.model.php
           git -C "$RUNNER_TEMP/cpd-synthetic" checkout --detach 39cce22ed59cda56edbbeb3b746e692ab7d66fcb
       - name: Verify shared pinned source and CPD bootstrap
         run: |
