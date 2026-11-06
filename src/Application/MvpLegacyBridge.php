@@ -16,9 +16,8 @@ use ECidade\Nextcloud\Transport\NextcloudMvpClient;
  * Not activated by the current module manifest. It deliberately refuses to
  * run on non-disposable databases and never calls native pg_lo_* functions.
  *
- * Important: writes are only readable after SQL COMMIT + reconciliation.
- * That difference from legacy read-after-write semantics MUST be validated
- * against a concrete ERP workflow before selecting this facade.
+ * Experimental SQL-visible read-after-write works before reconciliation,
+ * but MUST be validated against concrete ERP callsites and permissions.
  */
 final class MvpLegacyBridge
 {

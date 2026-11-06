@@ -13,13 +13,17 @@ DBSeller / Contass / CPD / new fork
   |  module.json: upstream, SHA, hooks, capabilities
   +-- PHP class override or framework bootstrap
        |
-       LargeObjectBridge (legacy OID surface)
+       LargeObjectBridge (legacy method/return translation)
        |
-       DocumentClient (HTTPS, TLS, token, checksum, no silent PG fallback)
+       AdapterServiceV1 (explicit DI, scoped authorization)
        |
-       Nextcloud lab API (Node Files API, files metadata)
+       DocumentCoordinator + PgDocumentLedger (ERP transaction, outbox)
        |
-       Nextcloud persists document bytes and metadata
+       NextcloudMvpClient (HTTPS; staged immutable versions)
+       |
+       Nextcloud 35 test API (not enabled in vendor deployments)
+       |
+       Nextcloud persists document bytes; SQL stores references only
 ```
 
 ## What remains in e-Cidade

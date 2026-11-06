@@ -30,8 +30,8 @@ if (strpos($manifest, '<id>ecidadelab</id>') === false
 }
 
 $routes = require $routesFile;
-if (!is_array($routes) || !isset($routes['ocs']) || count($routes['ocs']) !== 12) {
-    throw new RuntimeException('Nextcloud app must expose exactly twelve legacy and MVP document API routes');
+if (!is_array($routes) || !isset($routes['ocs']) || count($routes['ocs']) !== 13) {
+    throw new RuntimeException('Nextcloud app must expose exactly thirteen legacy and MVP document API routes');
 }
 $expected = [
     'documents#create' => 'POST',
@@ -44,6 +44,7 @@ $expected = [
     'mvp#inspect' => 'GET',
     'mvp#finalize' => 'POST',
     'mvp#download' => 'GET',
+    'mvp#pendingDownload' => 'GET',
     'mvp#abort' => 'DELETE',
     'mvp#staged' => 'GET',
 ];
@@ -76,4 +77,4 @@ foreach ([
         throw new RuntimeException('Invalid PHP syntax: ' . basename($file));
     }
 }
-echo "PASS Nextcloud 35 PoC app packaged with twelve scoped document-only routes, PHP 8.3 syntax and no benchmark endpoints\n";
+echo "PASS Nextcloud 35 PoC app packaged with thirteen scoped document-only routes, PHP 8.3 syntax and no benchmark endpoints\n";

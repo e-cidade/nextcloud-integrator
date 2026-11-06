@@ -15,6 +15,7 @@ return [
     ['name' => 'mvp#stage', 'url' => '/api/v2/documents/{documentKey}/versions/{operationKey}', 'verb' => 'POST'],
     ['name' => 'mvp#inspect', 'url' => '/api/v2/documents/{documentKey}/versions/{operationKey}', 'verb' => 'GET'],
     ['name' => 'mvp#finalize', 'url' => '/api/v2/documents/{documentKey}/versions/{operationKey}/finalize', 'verb' => 'POST'],
+    ['name' => 'mvp#pendingDownload', 'url' => '/api/v2/documents/{documentKey}/versions/{operationKey}/pending-content', 'verb' => 'GET'],
     ['name' => 'mvp#download', 'url' => '/api/v2/documents/{documentKey}/versions/{operationKey}/content', 'verb' => 'GET'],
     ['name' => 'mvp#abort', 'url' => '/api/v2/documents/{documentKey}/versions/{operationKey}', 'verb' => 'DELETE'],
     ['name' => 'mvp#staged', 'url' => '/api/v2/staged', 'verb' => 'GET'],

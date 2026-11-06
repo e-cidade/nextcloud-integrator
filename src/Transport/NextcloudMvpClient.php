@@ -23,6 +23,7 @@ final class NextcloudMvpClient implements RemoteDocuments
     private $token;
     private $caFile;
     private $handle;
+    private $pendingReadKey;
 
     public function __construct(Scope $scope, array $options)
     {
@@ -47,6 +48,9 @@ final class NextcloudMvpClient implements RemoteDocuments
         $this->username = $options['user'];
         $this->token = $options['token'];
         $this->caFile = $options['ca_file'];
+        // Pending reads need a separate server-side secret, not an app password.
+        $this->pendingReadKey = isset($options['pending_read_key'])
+            ? $options['pending_read_key'] : null;
     }
 
     public static function fromEnvironment()
@@ -63,6 +67,7 @@ final class NextcloudMvpClient implements RemoteDocuments
             'user' => getenv('ECIDADE_MVP_USER'),
             'token' => getenv('ECIDADE_MVP_TOKEN'),
             'ca_file' => getenv('ECIDADE_MVP_CA'),
+            'pending_read_key' => getenv('ECIDADE_MVP_PENDING_READ_KEY'),
         ]);
     }
 
@@ -73,9 +78,9 @@ final class NextcloudMvpClient implements RemoteDocuments
         }
     }
 
-    private function request($method, $path, $bytes, array $expected)
+    private function request($method, $path, $bytes, array $expected, array $extraHeaders = [])
     {
-        if (!preg_match('#^/documents/[a-f0-9]{64}/versions/[a-f0-9]{64}(?:/(?:finalize|content))?$#D', $path)
+        if (!preg_match('#^/documents/[a-f0-9]{64}/versions/[a-f0-9]{64}(?:/(?:finalize|content|pending-content))?$#D', $path)
             && !preg_match('#^/staged\?before=[0-9]{1,11}&limit=[0-9]{1,3}$#D', $path)) {
             throw new \InvalidArgumentException('Invalid remote document API path');
         }
@@ -92,6 +97,7 @@ final class NextcloudMvpClient implements RemoteDocuments
             'Cache-Control: no-store',
             'Expect:'
         ];
+        $headers = array_merge($headers, $extraHeaders);
         $options = [
             CURLOPT_URL => $this->url . $path,
             CURLOPT_CUSTOMREQUEST => $method,
@@ -186,6 +192,38 @@ final class NextcloudMvpClient implements RemoteDocuments
             $this->versionPath($documentKey, $operationKey) . '/content',
             null,
             [200]
+        );
+        if (strlen($raw) > 8388608) {
+            throw new \RuntimeException('Remote response exceeds experimental size limit');
+        }
+        return $raw;
+    }
+
+    /**
+     * Authenticated privileged read, constructed only after SQL-visible
+     * journal lookup. The server validates a separate short-lived MAC.
+     */
+    public function downloadPending(Scope $scope, $documentKey, $operationKey)
+    {
+        $this->assertScope($scope);
+        $documentKey = OperationKey::validate($documentKey);
+        $operationKey = OperationKey::validate($operationKey);
+        if (!is_string($this->pendingReadKey) || strlen($this->pendingReadKey) < 32) {
+            throw new \RuntimeException('Pending read capability not configured');
+        }
+        $timestamp = time();
+        $payload = implode("\n", [
+            'pending-read-v1', $scope->installation(), $scope->tenant(),
+            $documentKey, $operationKey, (string)$timestamp
+        ]);
+        $signature = hash_hmac('sha256', $payload, $this->pendingReadKey);
+        $raw = $this->request(
+            'GET',
+            $this->versionPath($documentKey, $operationKey) . '/pending-content',
+            null,
+            [200],
+            ['X-Ecidade-Pending-Time: ' . $timestamp,
+                'X-Ecidade-Pending-Signature: ' . $signature]
         );
         if (strlen($raw) > 8388608) {
             throw new \RuntimeException('Remote response exceeds experimental size limit');

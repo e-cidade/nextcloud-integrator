@@ -79,6 +79,7 @@ try {
         'bootstrap.php', 'bin/integrator.php',
         'src/AdapterRegistry.php', 'src/DocumentClient.php',
         'src/LargeObjectBridge.php', 'src/StandardLargeObjectFacade.php',
+        'src/Domain/Scope.php',
         'modules/dbseller/module.json', 'modules/dbseller/DBLargeObject.php'
     ];
     foreach ($files as $file) {
@@ -141,6 +142,39 @@ try {
     assertTrue(
         $loaded[0] === 0 && strpos($loaded[1], 'PASS community PHP bootstrap') !== false,
         'Module bootstrap not loaded: '.$loaded[2]
+    );
+
+    // A SPI environment flag cannot bypass an undeclared capability.
+    $unmapped = phpCommand(['-r', $child], [
+        'ECIDADE_INTEGRATOR_ROOT' => $tmp,
+        'ECIDADE_ADAPTER' => 'community-contract-smoke',
+        'ECIDADE_SPI_V1' => '1',
+        'ECIDADE_POC_CLIENT' => ''
+    ]);
+    assertTrue($unmapped[0] !== 0, 'SPI flag bypassed an undeclared capability');
+
+    // Only a reviewed and explicitly declared persistent surface can load.
+    // This merely loads PHP; it does not grant ACL or bind a remote service.
+    $manifest['storage_capabilities'] = [[
+        'surface' => 'large-object-facade',
+        'usage' => 'persistent-document',
+        'spi' => 1,
+        'operations' => ['reserve', 'create', 'read', 'update', 'delete', 'inspect']
+    ]];
+    file_put_contents($manifestFile, json_encode($manifest, JSON_PRETTY_PRINT) . "\n");
+    $spiChild = 'require ' . var_export($tmp.'/bootstrap.php', true) . '; '
+        . 'if (empty($GLOBALS["community_hook_loaded"]) '
+        . '|| !class_exists("ECidade\\Nextcloud\\Domain\\Scope")) exit(8); '
+        . 'echo "PASS gated SPI bootstrap\n";';
+    $loadedSpi = phpCommand(['-r', $spiChild], [
+        'ECIDADE_INTEGRATOR_ROOT' => $tmp,
+        'ECIDADE_ADAPTER' => 'community-contract-smoke',
+        'ECIDADE_SPI_V1' => '1',
+        'ECIDADE_POC_CLIENT' => ''
+    ]);
+    assertTrue(
+        $loadedSpi[0] === 0 && strpos($loadedSpi[1], 'PASS gated SPI bootstrap') !== false,
+        'SPI capability-only bootstrap failed: ' . $loadedSpi[2]
     );
 
     echo "PASS PHP scaffold, default-deny, source fingerprint and community adapter hook\n";

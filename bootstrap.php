@@ -18,10 +18,36 @@ if (!$adapter) {
         $adapter = isset($choice['module']) ? $choice['module'] : null;
     }
 }
+// PHP 5.6-compatible lazy loading; binding a transaction remains explicit.
+spl_autoload_register(function ($class) use ($root) {
+    $prefix = 'ECidade\\Nextcloud\\';
+    if (strpos($class, $prefix) !== 0 || strpos($class, '..') !== false
+        || strpos($class, '/') !== false || strpos($class, "\0") !== false) {
+        return;
+    }
+    $relative = str_replace('\\', '/', substr($class, strlen($prefix)));
+    $file = $root.'/src/'.$relative.'.php';
+    if (is_file($file)) {
+        require_once $file;
+    }
+});
+
 require_once $root.'/src/AdapterRegistry.php';
 $registry = new \ECidade\Nextcloud\AdapterRegistry($root);
 $module = $registry->checkSelection($adapter);
-if (empty($module['production_ready']) && getenv('ECIDADE_POC_CLIENT') !== '1') {
+// SPI opt-in is NOT equivalent to production readiness or an ACL grant.
+// Only validated persistent-document capabilities may enter the SPI path.
+$spiCapable = false;
+if (isset($module['storage_capabilities'])) {
+    foreach ($module['storage_capabilities'] as $capability) {
+        if ($capability['spi'] === 1 && $capability['usage'] === 'persistent-document') {
+            $spiCapable = true;
+            break;
+        }
+    }
+}
+$spiSelected = getenv('ECIDADE_SPI_V1') === '1' && $spiCapable;
+if (empty($module['production_ready']) && getenv('ECIDADE_POC_CLIENT') !== '1' && !$spiSelected) {
     throw new RuntimeException('Experimental integration disabled outside explicit lab mode');
 }
 putenv('ECIDADE_ADAPTER='.$adapter);

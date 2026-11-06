@@ -56,6 +56,31 @@ class AdapterRegistry
         if ($m['schema'] !== 2 || $m['id'] !== $id || !is_array($m['hooks']) || count($m['hooks']) === 0) {
             throw new \RuntimeException('Unsupported or empty module manifest: '.$id);
         }
+        if (isset($m['storage_capabilities'])) {
+            if (!is_array($m['storage_capabilities'])) {
+                throw new \RuntimeException('Invalid SPI capabilities');
+            }
+            $supported = ['large-object-facade', 'direct-pg-lo', 'e-storage',
+                'laravel-storage', 'filesystem', 'bytea', 'temporary', 'cache', 'export'];
+            $usage = ['persistent-document', 'temporary', 'cache', 'export', 'unsupported'];
+            $operations = ['reserve', 'create', 'read', 'update', 'delete', 'inspect'];
+            $seen = [];
+            foreach ($m['storage_capabilities'] as $cap) {
+                if (!is_array($cap) || !isset($cap['surface'], $cap['usage'], $cap['spi'], $cap['operations'])
+                    || !in_array($cap['surface'], $supported, true)
+                    || !in_array($cap['usage'], $usage, true)
+                    || $cap['spi'] !== 1 || !is_array($cap['operations'])
+                    || isset($seen[$cap['surface']])) {
+                    throw new \RuntimeException('Invalid SPI capability declaration');
+                }
+                foreach ($cap['operations'] as $operation) {
+                    if (!in_array($operation, $operations, true)) {
+                        throw new \RuntimeException('Unsupported SPI operation');
+                    }
+                }
+                $seen[$cap['surface']] = true;
+            }
+        }
         foreach ($m['hooks'] as $hook) {
             if (!is_array($hook) || !isset($hook['type'])) {
                 throw new \RuntimeException('Invalid module hook');

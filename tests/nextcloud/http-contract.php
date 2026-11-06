@@ -44,11 +44,12 @@ function callApi(
     string $tenant,
     string $method,
     string $path,
-    ?string $bytes = null
+    ?string $bytes = null,
+    array $headers = []
 ): array {
     global $api, $password;
     if (!in_array($user, ['synthetic-admin', 'synthetic-service-b'], true)
-        || !preg_match('#^/(documents/[a-f0-9]{64}/versions/[a-f0-9]{64}(/(content|finalize))?|staged\?before=[0-9]+&limit=[0-9]+)$#D', $path)) {
+        || !preg_match('#^/(documents/[a-f0-9]{64}/versions/[a-f0-9]{64}(/(content|finalize|pending-content))?|staged\?before=[0-9]+&limit=[0-9]+)$#D', $path)) {
         throw new InvalidArgumentException('Invalid synthetic test target');
     }
     $handle = curl_init($api . $path);
@@ -57,14 +58,14 @@ function callApi(
         CURLOPT_CUSTOMREQUEST => $method,
         CURLOPT_USERPWD => $user . ':' . $password,
         CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
-        CURLOPT_HTTPHEADER => [
+        CURLOPT_HTTPHEADER => array_merge([
             'OCS-APIRequest: true',
             'X-Ecidade-Installation: ' . $installation,
             'X-Ecidade-Tenant: ' . $tenant,
             'Accept: application/json',
             'Content-Type: application/octet-stream',
             'Expect:',
-        ],
+        ], $headers),
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_TIMEOUT => 45,
@@ -198,6 +199,28 @@ try {
         $base . '/content'
     );
     acceptStatus($status, [403], 'Staged content must be inaccessible');
+
+    // Ordinary authenticated service requests still cannot read staged bytes.
+    [$status] = callApi(
+        'synthetic-admin',
+        'installation-a',
+        'municipio-a',
+        'GET',
+        $base . '/pending-content'
+    );
+    acceptStatus($status, [403], 'Pending read requires independent authorization');
+
+    [$status] = callApi(
+        'synthetic-admin',
+        'installation-a',
+        'municipio-a',
+        'GET',
+        $base . '/pending-content',
+        null,
+        ['X-Ecidade-Pending-Time: ' . time(),
+            'X-Ecidade-Pending-Signature: ' . str_repeat('0', 64)]
+    );
+    acceptStatus($status, [403], 'Forged pending read proof rejected');
 
     [$status, , $finalized] = callApi(
         'synthetic-admin',

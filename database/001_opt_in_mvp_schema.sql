@@ -32,6 +32,9 @@ CREATE TABLE ecidade_nextcloud.documents (
     )
 );
 CREATE INDEX documents_scope ON ecidade_nextcloud.documents (installation, tenant, legacy_id);
+-- Reserve the same logical reference exactly once for active documents.
+CREATE UNIQUE INDEX unique_active_business_document ON ecidade_nextcloud.documents
+    (installation, tenant, business_key) WHERE deleted_at IS NULL;
 
 CREATE TABLE ecidade_nextcloud.operations (
     id bigserial PRIMARY KEY,
