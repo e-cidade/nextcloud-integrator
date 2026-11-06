@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Contass: pinned Protocolo business-model contract
 
-Upstream: `e-cidade/e-cidade-Contass@28e2a797dd0d14d3f7ea918d3ce06add154ec381`.
+Upstream: `e-cidade/e-cidade-Contass@90081bf22993292ad197134fe1617cace968a984`.
 `model/protocolo/ProcessoDocumento.model.php` is verified against Git blob
-`00b9a9d35703f8ebbe1076310d77f88bf24633fc`.
+`2eb3782e84400d40bae177d598445e26140ddf93`.
 
 The common `tests/upstream/protocolo-model-contract.php` loads the **original
 unchanged** PHP model on PHP 7.4. It exercises `salvar`, `download`, metadata
@@ -17,11 +17,12 @@ The same business-method contract is also exercised with verified HTTPS and
 Nextcloud 35 in CI. The original `require_once('std/DBLargeObject.php')` is
 resolved through an isolated temporary file instead of changing the source.
 
-The original Contass model writes the newly reserved OID to `$this->iOi`,
-not `$this->iOid` (the getter's property). The test therefore derives the
-actual OID from the saved synthetic business SQL row. A freshly loaded model
-returns the OID correctly, but the discrepancy must be resolved with the
-fork maintainer before relying on immediate `getOID()` after `salvar()`.
+The older Contass model assigned the newly reserved OID to `$this->iOi`
+instead of the declared `$this->iOid` used by the getter. This was corrected
+in the source PR `e-cidade/e-cidade-Contass#22`, merged as `d6c651f`.
+The pinned revision above includes the correction. The shared business
+model test now asserts `getOID()` immediately after `salvar()`, in addition
+to the saved business SQL reference and later reads/deletions.
 
 This is **not** a full ERP bootstrap or a real generated DAO test. It does
 not validate Laravel Storage, persistent file disks, direct `pg_lo_*`,

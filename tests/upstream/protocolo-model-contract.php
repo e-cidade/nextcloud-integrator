@@ -21,7 +21,7 @@ if (PHP_SAPI !== 'cli' || getenv('ECIDADE_SYNTHETIC_FORK_CONTRACT') !== '1'
 $fork = isset($argv[2]) ? $argv[2] : 'dbseller';
 $pinnedModelHashes = [
     'dbseller' => '4935e0514c8b206853f071d60612647503cedb99',
-    'contass' => '00b9a9d35703f8ebbe1076310d77f88bf24633fc',
+    'contass' => '2eb3782e84400d40bae177d598445e26140ddf93',
     'cpd' => 'b2b62a1cfc49bc402f5a10a4b063219ec7f230e6',
 ];
 if (!isset($pinnedModelHashes[$fork])) {
@@ -377,9 +377,10 @@ try {
         . 'WHERE p01_sequencial=' . (int)$docId);
     $oid = (int)pg_fetch_result($business, 0, 0);
     protoAssert($docId > 0 && $oid >= 3000000000, 'Invalid protocol business ID or logical OID');
-    if ($fork !== 'contass') {
-        protoAssert($model->getOID() === $oid, 'Original model OID differs from business record');
-    }
+    protoAssert(
+        $model->getOID() === $oid,
+        'Original model failed to retain the allocated OID in the business object'
+    );
     protoAssert(
         (int)pg_fetch_result($business, 0, 0) === $oid,
         'Original model did not persist logical OID into business record'
