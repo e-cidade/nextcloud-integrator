@@ -88,7 +88,8 @@ jobs:
           git -C "$root" sparse-checkout init --no-cone
           git -C "$root" sparse-checkout set --no-cone \
             /ecidade/std/DBLargeObject.php \
-            /ecidade/model/protocolo/ProcessoDocumento.model.php
+            /ecidade/model/protocolo/ProcessoDocumento.model.php \
+            /ecidade/classes/db_protprocessodocumento_classe.php
           git -C "$root" fetch --depth 1 --filter=blob:none origin \
             7fab5ac38b19dbd842ca81a259186c613c90f3c1
           git -C "$root" checkout --quiet --detach FETCH_HEAD
@@ -104,6 +105,10 @@ jobs:
             git -C "$root" sparse-checkout init --no-cone
             git -C "$root" sparse-checkout set --no-cone \
               /std/DBLargeObject.php /model/protocolo/ProcessoDocumento.model.php
+            if [ "$fork" = cpd ]; then
+              git -C "$root" sparse-checkout add \
+                /classes/db_protprocessodocumento_classe.php
+            fi
             git -C "$root" fetch --depth 1 --filter=blob:none origin "$revision"
             git -C "$root" checkout --quiet --detach FETCH_HEAD
             php bin/integrator.php verify-pinned "$fork" "$root"

@@ -49,6 +49,23 @@ The vendor must correct the boolean interpretation and cover it with its
 own pinned source tests before deployment. The SDK must not silently delete
 remote documents merely because an ERP record disappears.
 
+## Generated CPD DAO regression evidence
+
+The pinned `classes/db_protprocessodocumento_classe.php` source, verified
+by Git blob `9e130f3a86377bc17b8e7833c6b54a5d5d782939`, was
+executed **unchanged** with the original Protocolo model against synthetic
+PostgreSQL 11 and the shared SPI. The original model sends the string
+`"false"` to `p01_estorage`; the real DAO persists it as SQL
+`TRUE`. On deletion, the original CPD model skips the Large Object
+bridge and leaves a document readable without any business SQL row.
+This is a reproducible loss-of-tombstone defect, **not** an acceptable
+compatibility behavior. The updated source PR `e-cidade/e-cidade-CPD#1`
+contains both strict parsing of PostgreSQL boolean text and a real boolean
+assignment at creation. The proposed fixed source passes the same isolated
+PHP 5.6/generated-DAO test, but the branch requires human review before
+merge. Do not activate the CPD adapter until the upstream fix is merged,
+its fingerprint is repinned and full original-bootstrap/ACL paths are proven.
+
 ## Not yet established
 
 A complete inventory of direct `pg_lo_*`, `bytea`, persistent filesystem,

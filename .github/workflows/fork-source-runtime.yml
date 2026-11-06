@@ -88,6 +88,13 @@ jobs:
             source_model=model/protocolo/ProcessoDocumento.model.php
           fi
           git -C "$RUNNER_TEMP/fork-original" sparse-checkout add "/$source_model"
+          if [ "${{ matrix.fork }}" = dbseller ]; then
+            git -C "$RUNNER_TEMP/fork-original" sparse-checkout add \
+              /ecidade/classes/db_protprocessodocumento_classe.php
+          elif [ "${{ matrix.fork }}" = cpd ]; then
+            git -C "$RUNNER_TEMP/fork-original" sparse-checkout add \
+              /classes/db_protprocessodocumento_classe.php
+          fi
           git -C "$RUNNER_TEMP/fork-original" fetch --depth 1 --filter=blob:none origin "${{ matrix.commit }}"
           git -C "$RUNNER_TEMP/fork-original" checkout --quiet --detach FETCH_HEAD
       - name: Confirm exact revision and immutable source fingerprint
@@ -114,3 +121,15 @@ jobs:
           php tests/upstream/protocolo-model-contract.php \
             "$RUNNER_TEMP/fork-original/$source_model" \
             "${{ matrix.fork }}"
+      - name: Characterize pinned generated DAO and legacy E-Storage regression
+        if: matrix.fork != 'contass'
+        run: |
+          if [ "${{ matrix.fork }}" = dbseller ]; then
+            prefix=ecidade/
+          else
+            prefix=
+          fi
+          php tests/upstream/protocolo-generated-dao-contract.php \
+            "$RUNNER_TEMP/fork-original/${prefix}model/protocolo/ProcessoDocumento.model.php" \
+            "$RUNNER_TEMP/fork-original/${prefix}classes/db_protprocessodocumento_classe.php" \
+            "${{ matrix.fork }}" legacy
