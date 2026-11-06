@@ -229,6 +229,26 @@ of pending-read capability and operational key management. The synthetic
 contract is **not** evidence of production readiness or municipal homologation.
 
 
+### Original municipal Protocolo models (synthetic business-method evidence)
+
+The pinned-source matrix also loads each fork's **unchanged original**
+`ProcessoDocumento.model.php` and calls its business create/read/metadata
+update/delete entrypoints using a synthetic PostgreSQL DAO, the **same** SPI
+and reconciler. The HTTPS/Nextcloud 35 contract executes the same model per
+fork under an isolated database and temporary filesystem. The tests cover
+transaction visibility, immutable content revisions, rollback, identity,
+authorization and lack of native SQL LO/`bytea` duplication for this flow.
+They do not replace the original DAO, application bootstrap or municipal
+schema, and do not certify E-Storage, filesystem, Laravel storage or direct
+native PostgreSQL calls.
+
+Source-level caveats are tracked in the fork documentation: Contass assigns
+`iOi` rather than `iOid` on creation, and the CPD model can skip its
+large-object deletion if PostgreSQL's text `f` is treated as truthy by
+`isStorage()`. The CPD negative test proves the bypass, then normalizes the
+**synthetic fixture only**; the vendor-side behavior remains a blocker for
+functional approval. No adapter is production-enabled by these tests.
+
 ### Pinned upstream source contract (PHP 5.6/7.4)
 
 The `.github/workflows/fork-source-runtime.yml` matrix fetches only the

@@ -78,7 +78,7 @@ jobs:
           $C up -d --wait --wait-timeout 180 nextcloud
           $C exec -T -e ECIDADE_SYNTHETIC_HTTP_TEST=1 -e "MVP_SYNTHETIC_PASSWORD=$MVP_SYNTHETIC_PASSWORD" nextcloud php /sdk/tests/nextcloud/http-contract.php restart
 
-      - name: Fetch immutable public DBSeller protocol model for real-method test
+      - name: Fetch pinned public Protocolo models for shared three-fork runtime test
         run: |
           set -euo pipefail
           root=.build/pinned-dbseller
@@ -93,6 +93,21 @@ jobs:
             7fab5ac38b19dbd842ca81a259186c613c90f3c1
           git -C "$root" checkout --quiet --detach FETCH_HEAD
           php bin/integrator.php verify-pinned dbseller "$root"
+          for spec in \
+            'contass e-cidade-Contass 28e2a797dd0d14d3f7ea918d3ce06add154ec381' \
+            'cpd e-cidade-CPD 39cce22ed59cda56edbbeb3b746e692ab7d66fcb'; do
+            read -r fork repository revision <<< "$spec"
+            root=".build/pinned-$fork"
+            mkdir -p "$root"
+            git -C "$root" init -q
+            git -C "$root" remote add origin "https://github.com/e-cidade/$repository.git"
+            git -C "$root" sparse-checkout init --no-cone
+            git -C "$root" sparse-checkout set --no-cone \
+              /std/DBLargeObject.php /model/protocolo/ProcessoDocumento.model.php
+            git -C "$root" fetch --depth 1 --filter=blob:none origin "$revision"
+            git -C "$root" checkout --quiet --detach FETCH_HEAD
+            php bin/integrator.php verify-pinned "$fork" "$root"
+          done
 
       - name: Verify PHP SDK over trusted HTTPS and transactional PostgreSQL
         run: |
@@ -106,8 +121,18 @@ jobs:
             -e ECIDADE_SYNTHETIC_FORK_CONTRACT=1 \
             -e ECIDADE_MVP_PENDING_READ_KEY="$MVP_SYNTHETIC_PENDING_KEY" \
             --entrypoint php ledger-runner \
-            /sdk/tests/upstream/dbseller-protocolo-contract.php \
-            /sdk/.build/pinned-dbseller/ecidade/model/protocolo/ProcessoDocumento.model.php
+            /sdk/tests/upstream/protocolo-model-contract.php \
+            /sdk/.build/pinned-dbseller/ecidade/model/protocolo/ProcessoDocumento.model.php \
+            dbseller
+          for fork in contass cpd; do
+            $I run --rm --no-deps \
+              -e ECIDADE_SYNTHETIC_FORK_CONTRACT=1 \
+              -e ECIDADE_MVP_PENDING_READ_KEY="$MVP_SYNTHETIC_PENDING_KEY" \
+              --entrypoint php ledger-runner \
+              /sdk/tests/upstream/protocolo-model-contract.php \
+              "/sdk/.build/pinned-$fork/model/protocolo/ProcessoDocumento.model.php" \
+              "$fork"
+          done
 
       - name: Revoke synthetic account and deny further access
         run: |

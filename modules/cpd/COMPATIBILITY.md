@@ -25,6 +25,30 @@ it does not implement another storage service.
   path. It is a staging step, **not** evidence of durable document storage.
   Do not redirect it to Nextcloud or classify it as a duplicate persistent copy.
 
+## Pinned original Protocolo business-model test
+
+The pinned public `model/protocolo/ProcessoDocumento.model.php` is also
+verified by source blob `b2b62a1cfc49bc402f5a10a4b063219ec7f230e6`.
+The common `tests/upstream/protocolo-model-contract.php` exercises its
+unchanged `salvar()`, `download()`, metadata `alterar()` and `excluir()` on
+PHP 5.6 against PostgreSQL 11, shared SPI/journal and reconciler. The same
+model is exercised against disposable Nextcloud 35 over trusted HTTPS in CI.
+Only its database DAO is replaced by a small synthetic PostgreSQL DAO: this
+**does not** boot the full CPD ERP, UI, original generated DAO or municipal
+schema. Capability declarations and production deployment remain disabled.
+
+**Observed correctness defect:** PostgreSQL can return `p01_estorage=false`
+as the string `f`. The pinned `ProcessoDocumento::isStorage()` uses a loose
+comparison, and `excluir()` skips `DBLargeObject::exclusao` in that case.
+The test first demonstrates the omission: the synthetic business record is
+deleted but the committed document remains readable. It then rolls back and
+explicitly normalizes the boolean on the **fixture object only** with
+`setStorage(false)` before asserting the correct tombstone path. This is a
+measured blocker in the original CPD source, not a production workaround.
+The vendor must correct the boolean interpretation and cover it with its
+own pinned source tests before deployment. The SDK must not silently delete
+remote documents merely because an ERP record disappears.
+
 ## Not yet established
 
 A complete inventory of direct `pg_lo_*`, `bytea`, persistent filesystem,

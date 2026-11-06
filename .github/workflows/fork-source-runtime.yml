@@ -83,8 +83,11 @@ jobs:
           git -C "$RUNNER_TEMP/fork-original" sparse-checkout init --no-cone
           git -C "$RUNNER_TEMP/fork-original" sparse-checkout set --no-cone "/${{ matrix.source }}"
           if [ "${{ matrix.fork }}" = dbseller ]; then
-            git -C "$RUNNER_TEMP/fork-original" sparse-checkout add               /ecidade/model/protocolo/ProcessoDocumento.model.php
+            source_model=ecidade/model/protocolo/ProcessoDocumento.model.php
+          else
+            source_model=model/protocolo/ProcessoDocumento.model.php
           fi
+          git -C "$RUNNER_TEMP/fork-original" sparse-checkout add "/$source_model"
           git -C "$RUNNER_TEMP/fork-original" fetch --depth 1 --filter=blob:none origin "${{ matrix.commit }}"
           git -C "$RUNNER_TEMP/fork-original" checkout --quiet --detach FETCH_HEAD
       - name: Confirm exact revision and immutable source fingerprint
@@ -101,7 +104,13 @@ jobs:
             "$RUNNER_TEMP/fork-original/${{ matrix.source }}"
       - name: Exercise original facade signatures through shared SPI and SQL outbox
         run: php tests/upstream/spi-facade-contract.php "${{ matrix.fork }}"
-      - name: Exercise pinned DBSeller Protocolo business methods with synthetic SQL
-        if: matrix.fork == 'dbseller'
+      - name: Exercise pinned Protocolo original business methods through shared SPI
         run: |
-          php tests/upstream/dbseller-protocolo-contract.php             "$RUNNER_TEMP/fork-original/ecidade/model/protocolo/ProcessoDocumento.model.php"
+          if [ "${{ matrix.fork }}" = dbseller ]; then
+            source_model=ecidade/model/protocolo/ProcessoDocumento.model.php
+          else
+            source_model=model/protocolo/ProcessoDocumento.model.php
+          fi
+          php tests/upstream/protocolo-model-contract.php \
+            "$RUNNER_TEMP/fork-original/$source_model" \
+            "${{ matrix.fork }}"

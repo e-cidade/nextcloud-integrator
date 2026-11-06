@@ -29,6 +29,13 @@
       "target": "std/DBLargeObject.php",
       "replacement": "DBLargeObject.php",
       "contract": "DBLargeObject"
+    },
+    {
+      "type": "source-signature",
+      "source": {
+        "path": "model/protocolo/ProcessoDocumento.model.php",
+        "git_blob": "b2b62a1cfc49bc402f5a10a4b063219ec7f230e6"
+      }
     }
   ]
 }
