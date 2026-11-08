@@ -168,6 +168,12 @@ jobs:
             test ! -e config/require_extensions.xml
             cp config/require_extensions.xml.dist config/require_extensions.xml
             test -s config/require_extensions.xml
+            # Required by abrir.php for the release-version check; vendor
+            # installer also omits this .dist promotion.
+            test -s libs/db_acessa.php.dist
+            test ! -e libs/db_acessa.php
+            cp libs/db_acessa.php.dist libs/db_acessa.php
+            test -s libs/db_acessa.php
           '
           # The real ERP opens extension/log/*.log during authentication.
           # The read-write checkout belongs to the runner, not Apache's
