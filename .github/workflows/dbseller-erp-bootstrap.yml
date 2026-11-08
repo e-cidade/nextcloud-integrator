@@ -108,7 +108,19 @@ jobs:
             exit 1
           fi
           if grep -Eq '\[ERROR\]|\[Error\]|Problema ao criar' "$log"; then
+            # Emit predefined failure categories, never raw SQL, database
+            # records, generated keys, passwords, or Composer credentials.
             echo 'Original DBSeller installer reported an internal failure' >&2
+            for category in \
+              'Problema ao criar o banco de dados:vendor-database-restore' \
+              'Problema ao configurar:vendor-configuration' \
+              'Problema ao instalar:vendor-composer-or-artisan'; do
+              pattern="${category%%:*}"
+              label="${category#*:}"
+              if grep -Fq "$pattern" "$log"; then
+                echo "::error title=DBSeller installer phase::$label" >&2
+              fi
+            done
             exit 1
           fi
           rm -f "$log" "$DBSELLER_ERP_ROOT/ecidade/docker/ecidade_base.sql"
