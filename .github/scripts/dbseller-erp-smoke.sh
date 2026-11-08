@@ -45,8 +45,14 @@ home_code="$(curl --silent --show-error --location --max-time 30 \
   --cookie-jar "$temp/cookies" --cookie "$temp/cookies" \
   --output "$temp/home" --write-out '%{http_code}' http://127.0.0.1/index.php)"
 [[ "$home_code" == 200 ]] || { echo 'Real ERP index returned non-200 HTTP status' >&2; exit 1; }
-grep -Eiq 'usu_login|js_acessar' "$temp/home" || {
-  echo 'ERP HTTP response is not the original login page' >&2
+# In the original ERP, index.php performs bootstrap/prerequisite checks;
+# login.php is the actual original login form. Test both independently.
+login_page_code="$(curl --silent --show-error --location --max-time 30 \
+  --cookie-jar "$temp/cookies" --cookie "$temp/cookies" \
+  --output "$temp/form" --write-out '%{http_code}' http://127.0.0.1/login.php)"
+[[ "$login_page_code" == 200 ]] || { echo 'Real ERP login.php returned non-200 HTTP status' >&2; exit 1; }
+grep -Eiq 'usu_login|js_acessar' "$temp/form" || {
+  echo 'Real ERP login.php did not render its original authentication form' >&2
   exit 1
 }
 
