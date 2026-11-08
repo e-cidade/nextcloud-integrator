@@ -316,6 +316,12 @@ try {
     $model->setUsuario(new UsuarioSistema(1001));
     $model->setCaminhoArquivo($upload);
     $model->setOrdem(1);
+    // A PostgreSQL 'f' is a nonempty PHP 5.6 string. The candidate must
+    // decide to allocate an OID using normalized state during INSERT, not
+    // merely serialize the final p01_estorage flag correctly.
+    if ($candidate && $variant === 'fixed') {
+        $model->setStorage('f');
+    }
 
     db_query('BEGIN');
     assertGenerated((bool)$model->salvar(), 'Original model/DAO insert failed');
