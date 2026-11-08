@@ -17,6 +17,8 @@ de computador é documentado aqui.
 | `ecidade/std/DBLargeObject.php` | `pg_lo_create`, `pg_lo_open`, `pg_lo_write`, `pg_lo_export`, `pg_lo_unlink` | Fachada PHP coberta pela PoC |
 | `ecidade/app/Domain/Configuracao/Helpers/StorageHelper.php` | Cliente E-Storage: upload, mudança, download, base64 | **Não coberto**. Exige adaptação de interface separada |
 | `ecidade/DBFileUpload.php` | `move_uploaded_file` para pasta temporária | Precisa rastrear ciclo de vida; arquivo temporário não é necessariamente storage definitivo |
+| `ecidade/prot4_processodocumento.RPC.php` | RPC original de Protocolo: `salvarDocumento`, `carregarDocumentos`, `download`, `excluirDocumento` | Coberto por HTTP em laboratório com modelo/DAO originais, sessão e bootstrap sintéticos; fonte pinada por blob |
+| `ecidade/routes/api/patrimonial/protocolo.php` / `app/Domain/Patrimonial/Protocolo/Controller/Processo/ProcessoDocumentoController.php` | API Laravel para download via `StorageHelper` | Superfície **E-Storage distinta**; não é comprovada pelo fluxo OID/RPC |
 
 O contrato funcional detalhado, incluindo `allowed[]`,
 `file_father`, MIME, retorno `onlyId`, Base64 e arquivos temporários,
