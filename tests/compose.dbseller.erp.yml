@@ -33,9 +33,16 @@ services:
       DB_PASSWORD: ${ERP_DB_PASSWORD:?Random CI-only database password required}
       PGPASSWORD: ${ERP_DB_PASSWORD:?Random CI-only database password required}
       ECIDADE_ERP_DISPOSABLE_CI: "1"
+      ECIDADE_ERP_NEXTCLOUD_E2E: "1"
+      ECIDADE_ADAPTER: dbseller
+      ECIDADE_INTEGRATOR_ROOT: /sdk
+      ECIDADE_SPI_V1: "1"
+      MVP_SYNTHETIC_PASSWORD: ${MVP_SYNTHETIC_PASSWORD:?Random disposable Nextcloud password required}
+      MVP_SYNTHETIC_PENDING_KEY: ${MVP_SYNTHETIC_PENDING_KEY:?Random disposable pending key required}
     volumes:
       - ${DBSELLER_ERP_ROOT:?Exact, disposable DBSeller checkout required}/ecidade:/var/www/html
       - ../.github/scripts:/ci:ro
+      - ../:/sdk:ro
     networks:
       - erp-internal
       - setup-egress

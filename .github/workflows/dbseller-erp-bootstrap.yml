@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
   vendor-erp:
-    name: Original Docker/PHP 5.6/PostgreSQL 16 install and login
+    name: Original DBSeller Protocolo + Nextcloud 35 document lifecycle
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     env:
@@ -67,6 +67,13 @@ jobs:
           echo "::add-mask::$password"
           echo "ERP_DB_PASSWORD=$password" >> "$GITHUB_ENV"
           echo "ERP_PROJECT=ecidade-erp-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+          remote_password="$(openssl rand -hex 32)"
+          remote_pending="$(openssl rand -hex 32)"
+          echo "::add-mask::$remote_password"
+          echo "::add-mask::$remote_pending"
+          echo "MVP_SYNTHETIC_PASSWORD=$remote_password" >> "$GITHUB_ENV"
+          echo "MVP_SYNTHETIC_PENDING_KEY=$remote_pending" >> "$GITHUB_ENV"
+          echo "MVP_PROJECT=ecidade-erp-nc-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
 
       - name: Verify no DB or ERP service exposes host ports
         shell: bash
@@ -211,6 +218,56 @@ jobs:
           docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml \
             exec -T erp-web bash /ci/dbseller-erp-smoke.sh
 
+      - name: Start disposable Nextcloud 35 with trusted HTTPS for real ERP
+        shell: bash
+        run: |
+          set -euo pipefail
+          C=(docker compose -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml)
+          I=(docker compose --profile integration -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml)
+          E=(docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml)
+          "${C[@]}" up -d --wait --wait-timeout 180 nextcloud
+          "${C[@]}" exec -T --user www-data nextcloud php occ app:enable ecidadelab
+          "${C[@]}" exec -T --user www-data nextcloud php occ config:system:set ecidadelab_pending_read_key --value="$MVP_SYNTHETIC_PENDING_KEY"
+          "${C[@]}" exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-admin installation --value=installation-a
+          "${C[@]}" exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-admin tenant --value=municipio-a
+          "${C[@]}" exec -T --user www-data nextcloud php occ config:system:set ecidadelab_mvp_enabled --type=boolean --value=true
+          "${C[@]}" restart nextcloud
+          "${C[@]}" up -d --wait --wait-timeout 180 nextcloud
+          "${C[@]}" exec -T nextcloud sh -ec 'umask 077; openssl req -x509 -newkey rsa:2048 -nodes -days 1 -sha256 -subj "/CN=synthetic-nextcloud" -addext "subjectAltName=DNS:synthetic-nextcloud" -keyout /synthetic-certs/key.pem -out /synthetic-certs/cert.pem >/dev/null 2>&1; chmod 0644 /synthetic-certs/cert.pem'
+          "${I[@]}" up -d --wait --wait-timeout 120 tls-proxy
+          # Both networks are internal; no service exposes a host port.
+          erp_container="$("${E[@]}" ps -q erp-web)"
+          nextcloud_container="$("${C[@]}" ps -q nextcloud)"
+          test -n "$erp_container" && test -n "$nextcloud_container"
+          docker network connect "${MVP_PROJECT}_synthetic" "$erp_container"
+          # Share only public CA certificate, never the TLS private key.
+          docker cp "$nextcloud_container:/synthetic-certs/cert.pem" "$RUNNER_TEMP/dbseller-nextcloud-ca.pem"
+          docker cp "$RUNNER_TEMP/dbseller-nextcloud-ca.pem" "$erp_container:/tmp/ecidade-nextcloud-ca.pem"
+          # Metadata-only schema in disposable ORIGINAL ERP demonstration DB.
+          "${E[@]}" exec -T erp-web psql -X -q -v ON_ERROR_STOP=1 \
+            -h erp-db -U postgres -d ecidade < database/001_opt_in_mvp_schema.sql
+          # Attest untouched upstream facade BEFORE the ephemeral CI-only overlay.
+          original="$DBSELLER_ERP_ROOT/ecidade/std/DBLargeObject.php"
+          actual="$(git -C "$DBSELLER_ERP_ROOT" hash-object ecidade/std/DBLargeObject.php)"
+          expected="$(jq -er '.hooks[] | select(.type=="php-file-override" and .target=="std/DBLargeObject.php") | .source.git_blob' modules/dbseller/module.json)"
+          test "$actual" = "$expected" && test ! -L "$original" || {
+            echo "Unexpected original DBSeller large object facade revision" >&2
+            exit 1
+          }
+          printf '%s\n' '<?php' "require_once '/sdk/modules/dbseller/DBLargeObject.php';" "require_once '/sdk/tests/upstream/dbseller-real-erp-binding.php';" > "$original"
+          # Only ephemeral staging/download files may be written by Apache.
+          "${E[@]}" exec -T erp-web bash -ec 'install -d -m 0770 -o www-data -g www-data /var/www/html/tmp'
+          "${E[@]}" exec -T erp-web php -l /var/www/html/std/DBLargeObject.php
+          "${E[@]}" exec -T erp-web php -l /sdk/tests/upstream/dbseller-real-erp-binding.php
+          "${E[@]}" exec -T erp-web php -l /sdk/tests/upstream/dbseller-real-erp-client.php
+
+      - name: Full original Protocolo RPC document CRUD through real Nextcloud 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml \
+            exec -T erp-web php /sdk/tests/upstream/dbseller-real-erp-client.php
+
       - name: Record precisely what the real-ERP gate proves
         if: success()
         shell: bash
@@ -221,15 +278,22 @@ jobs:
             echo '- Original vendor Dockerfiles: PHP 5.6 + PostgreSQL 16'
             echo '- Original vendor demo SQL restore / LATIN1 schema: validated'
             echo '- Original ERP HTTP index and authenticated session: validated'
+            echo '- Real Protocolo RPC document create, read, list, update and delete over Nextcloud 35 HTTPS: validated'
+            echo '- Metadata-only PostgreSQL journal, reconciler and no PostgreSQL native document-byte duplication: validated'
             echo '- Internet egress disconnected before HTTP assertions'
             echo '- No host ports, privileged credentials, artifacts or persistent volumes'
-            echo '- **Not certified:** Nextcloud interception inside full ERP, Protocolo CRUD, ACL or municipality cutover'
+            echo '- **Not certified:** full browser navigation, production ACL/tenant mapping, all ERP document surfaces or municipality cutover'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Destroy only this disposable ERP project and installer data
         if: always()
         shell: bash
         run: |
+          if test -n "${MVP_PROJECT:-}"; then
+            docker compose --profile integration -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml \
+              down --volumes --remove-orphans || true
+          fi
+          rm -f "$RUNNER_TEMP/dbseller-nextcloud-ca.pem"
           if [ -n "${ERP_PROJECT:-}" ] && [ -n "${DBSELLER_ERP_ROOT:-}" ]; then
             docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml \
               down --volumes --remove-orphans || true
