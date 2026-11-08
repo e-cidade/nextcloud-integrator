@@ -146,8 +146,10 @@ jobs:
             done
             # Independently inspect ONLY database catalog counts to determine
             # how far the vendor restore progressed. No SELECT of municipal rows.
-            if db_count="$("${compose[@]}" exec -T erp-web bash -ec \
-              'PGPASSWORD="$DB_PASSWORD" psql -X -q -tA -h "$DB_HOST" -U "$DB_USERNAME" -d "$DB_DATABASE" -c "SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('\''pg_catalog'\'','\''information_schema'\'')" 2>/dev/null)"; then
+            if db_count="$("${compose[@]}" exec -T \
+              -e "PGPASSWORD=$ERP_DB_PASSWORD" erp-web psql -X -q -tA \
+              -h erp-db -U postgres -d ecidade \
+              -c "SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')" 2>/dev/null)"; then
               echo "Vendor restore created $db_count application tables before failing" >&2
             else
               echo 'Vendor database missing or inaccessible after installer' >&2
