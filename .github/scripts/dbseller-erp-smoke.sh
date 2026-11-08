@@ -65,7 +65,22 @@ login_code="$(curl --silent --show-error --max-time 30 \
   --cookie-jar "$temp/cookies" --cookie "$temp/cookies" \
   --output "$temp/login" --write-out '%{http_code}' \
   http://127.0.0.1/abrir.php)"
-[[ "$login_code" == 200 ]] || { echo "Real ERP authenticated endpoint returned HTTP $login_code instead of 200" >&2; exit 1; }
+if [[ "$login_code" != 200 ]]; then
+  echo "Real ERP authenticated endpoint returned HTTP $login_code instead of 200" >&2
+  # Report only the originating PHP filename and line, never the error text.
+  if [[ "$login_code" == 500 ]]; then
+    for logfile in /var/log/php_errors.log /var/log/apache2/error.log; do
+      if [[ -r "$logfile" ]]; then
+        location="$(grep -Eo '/var/www/html/[a-zA-Z0-9_./-]+\\.php( on line |:)[0-9]+' "$logfile" | tail -n 1 || true)"
+        if [[ -n "$location" ]]; then
+          echo "ERP PHP source location: $location" >&2
+          break
+        fi
+      fi
+    done
+  fi
+  exit 1
+fi
 grep -Eiq 'Abrindo E-cidade|inicio.php\?uso=' "$temp/login" || {
   echo 'Real ERP login did not create an authenticated municipal session' >&2
   exit 1
