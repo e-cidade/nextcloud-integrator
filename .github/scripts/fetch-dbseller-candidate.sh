@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# Read only three source files from the exact public upstream Git commit.
+# Read only four source files from the exact public upstream Git commit.
 # Do not check out a mutable ref, trust arbitrary local paths, or repin manifests.
 set -euo pipefail
 
@@ -32,7 +32,8 @@ git -C "$root" sparse-checkout init --no-cone
 git -C "$root" sparse-checkout set --no-cone \
   /ecidade/std/DBLargeObject.php \
   /ecidade/model/protocolo/ProcessoDocumento.model.php \
-  /ecidade/classes/db_protprocessodocumento_classe.php
+  /ecidade/classes/db_protprocessodocumento_classe.php \
+  /ecidade/prot4_processodocumento.RPC.php
 if [ -n "$pr" ]; then
   # This supports external fork PRs via GitHub's immutable pull request head
   # ref, but never trusts the ref without checking its exact commit SHA.
@@ -50,7 +51,8 @@ test "$(git -C "$root" rev-parse HEAD)" = "$sha"
 for path in \
   ecidade/std/DBLargeObject.php \
   ecidade/model/protocolo/ProcessoDocumento.model.php \
-  ecidade/classes/db_protprocessodocumento_classe.php; do
+  ecidade/classes/db_protprocessodocumento_classe.php \
+  ecidade/prot4_processodocumento.RPC.php; do
   test -f "$root/$path" && test ! -L "$root/$path" || {
     echo "Missing or symlinked upstream PHP source" >&2
     exit 1
@@ -64,6 +66,7 @@ for path in \
 done
 model="$(git -C "$root" rev-parse HEAD:ecidade/model/protocolo/ProcessoDocumento.model.php)"
 dao="$(git -C "$root" rev-parse HEAD:ecidade/classes/db_protprocessodocumento_classe.php)"
+route="$(git -C "$root" rev-parse HEAD:ecidade/prot4_processodocumento.RPC.php)"
 variant=fixed
 if [ "$model" = 4935e0514c8b206853f071d60612647503cedb99 ]; then
   # The historically pinned bug remains a CHARACTERIZATION, not an approval.
@@ -74,14 +77,15 @@ fi
   echo "DBSELLER_CANDIDATE_VARIANT=$variant"
   echo "ECIDADE_DBSELLER_CANDIDATE_MODEL_BLOB=$model"
   echo "ECIDADE_DBSELLER_CANDIDATE_DAO_BLOB=$dao"
+  echo "ECIDADE_DBSELLER_CANDIDATE_ROUTE_BLOB=$route"
 } >> "$GITHUB_ENV"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
     echo "### DBSeller upstream revision"
     echo "Commit: \`$sha\`"
-    echo "Original model/DAO integrity: verified against Git tree"
+    echo "Original RPC/model/DAO integrity: verified against Git tree"
     echo "Regression expectation: \`$variant\`"
-    echo "Coverage: Protocolo DAO/SPI and synthetic Nextcloud integration; not full ERP HTTP"
+    echo "Coverage: original Protocolo RPC route with synthetic bootstrap plus DAO/SPI and Nextcloud; not a full ERP-authenticated session"
   } >> "$GITHUB_STEP_SUMMARY"
 fi
 echo "DBSeller upstream source attested: $sha ($variant)"

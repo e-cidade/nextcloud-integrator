@@ -107,6 +107,50 @@ services:
     cap_drop:
       - ALL
 
+  # Disposable original DBSeller RPC over HTTP, with explicit synthetic
+  # bootstrap/authentication seams. NO host ports and NO ERP deployment.
+  dbseller-route-ci:
+    profiles: ["integration"]
+    build:
+      context: ..
+      dockerfile: tests/Dockerfile.pg
+    entrypoint: ["php", "-d", "display_errors=0", "-d", "log_errors=0", "-S", "0.0.0.0:8080", "/sdk/tests/upstream/dbseller-http-route.php"]
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      ECIDADE_SYNTHETIC_ERP_HTTP_TEST: "1"
+      ECIDADE_SYNTHETIC_TEST: "1"
+      ECIDADE_SYNTHETIC_HTTPS_TEST: "1"
+      PGHOST: mvp-db-ci0001
+      PGDATABASE: ecidade_synthetic_test
+      PGUSER: mvp_test
+      PGPASSWORD: ${MVP_SYNTHETIC_PASSWORD:?Disposable test password required}
+      MVP_SYNTHETIC_PASSWORD: ${MVP_SYNTHETIC_PASSWORD:?Disposable test password required}
+      ECIDADE_MVP_PENDING_READ_KEY: ${MVP_SYNTHETIC_PENDING_KEY:?Disposable pending key required}
+      ECIDADE_DBSELLER_CANDIDATE_MODEL_BLOB: ${ECIDADE_DBSELLER_CANDIDATE_MODEL_BLOB:-}
+      ECIDADE_DBSELLER_CANDIDATE_DAO_BLOB: ${ECIDADE_DBSELLER_CANDIDATE_DAO_BLOB:-}
+      ECIDADE_DBSELLER_CANDIDATE_ROUTE_BLOB: ${ECIDADE_DBSELLER_CANDIDATE_ROUTE_BLOB:-}
+    volumes:
+      - ../:/sdk:ro
+      - synthetic_tls:/synthetic-certs:ro
+    networks:
+      - synthetic
+    depends_on:
+      mvp-db-ci0001:
+        condition: service_healthy
+      tls-proxy:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8080/health') === false ? 1 : 0);"]
+      interval: 2s
+      timeout: 4s
+      retries: 35
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
 networks:
   synthetic:
     internal: true
