@@ -119,6 +119,7 @@ fi
 rpc_code="$(curl --silent --show-error --max-time 40 \
   --request POST --data-urlencode 'json={"exec":"ecidade_ci_session_probe"}' \
   --cookie-jar "$temp/cookies" --cookie "$temp/cookies" \
+  --dump-header "$temp/protocol-headers" \
   --output "$temp/protocol" --write-out '%{http_code}' \
   http://127.0.0.1/prot4_processodocumento.RPC.php)"
 if [[ "$rpc_code" != 200 ]] || ! php -r '
@@ -127,6 +128,18 @@ if [[ "$rpc_code" != 200 ]] || ! php -r '
     && (int)$response["iStatus"] === 1 ? 0 : 1);
 ' "$temp/protocol"; then
   echo "Real ERP Protocolo RPC failed its authenticated session probe (HTTP $rpc_code)" >&2
+  if [[ "$rpc_code" == 302 || "$rpc_code" == 301 ]]; then
+    # Report only the redirect PATH, never its query or session parameters.
+    php -r '
+      foreach (file($argv[1]) as $line) {
+        if (stripos($line, "Location:") !== 0) { continue; }
+        $path = parse_url(trim(substr($line, 9)), PHP_URL_PATH);
+        if (is_string($path) && preg_match("#^[a-zA-Z0-9_./-]{1,100}$#D", $path)) {
+          fwrite(STDERR, "ERP RPC redirect path: " . $path . "\\n");
+        }
+      }
+    ' "$temp/protocol-headers"
+  fi
   exit 1
 fi
 
