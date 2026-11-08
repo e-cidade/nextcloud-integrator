@@ -137,6 +137,16 @@ function modification($source)
     // synthetic identity. Those layers are outside this contract.
     return '/sdk/tests/upstream/dbseller-http-noop.php';
 }
+spl_autoload_register(function ($class) {
+    $prefix = 'ECidade\\Nextcloud\\';
+    if (strpos($class, $prefix) !== 0) {
+        return;
+    }
+    $path = '/sdk/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    if (is_file($path)) {
+        require_once $path;
+    }
+});
 class DBException extends Exception
 {
 }
@@ -288,16 +298,6 @@ try {
     syntheticSql('SET search_path TO generated_http_synthetic,public');
     putenv('ECIDADE_ADAPTER=dbseller');
     putenv('ECIDADE_INTEGRATOR_ROOT=/sdk');
-    spl_autoload_register(function ($class) {
-        $prefix = 'ECidade\\Nextcloud\\';
-        if (strpos($class, $prefix) !== 0) {
-            return;
-        }
-        $path = '/sdk/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
-        if (is_file($path)) {
-            require_once $path;
-        }
-    });
     require_once '/sdk/tests/fixtures/SyntheticProtocolStorageHelper.php';
     require_once $dao;
     require_once $model;
