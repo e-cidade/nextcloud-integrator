@@ -31,6 +31,7 @@ services:
       DB_DATABASE: ecidade
       DB_USERNAME: postgres
       DB_PASSWORD: ${ERP_DB_PASSWORD:?Random CI-only database password required}
+      PGPASSWORD: ${ERP_DB_PASSWORD:?Random CI-only database password required}
       ECIDADE_ERP_DISPOSABLE_CI: "1"
     volumes:
       - ${DBSELLER_ERP_ROOT:?Exact, disposable DBSeller checkout required}/ecidade:/var/www/html
