@@ -53,7 +53,7 @@ jobs:
 
       - name: Fetch entire exact DBSeller candidate and verify original vendor setup
         shell: bash
-        run: bash tests/dbseller-erp/fetch.sh "$DBS_SHA" "$DBSELLER_CANDIDATE_PR"
+        run: bash .github/scripts/dbseller-erp-fetch.sh "$DBS_SHA" "$DBSELLER_CANDIDATE_PR"
 
       - name: Attest original Protocolo PHP files before building source
         shell: bash
