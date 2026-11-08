@@ -5,7 +5,7 @@
   "version": "0.1.0-lab",
   "tested": true,
   "min_php": "5.6.4",
-  "upstream": "e-cidade/e-cidade-DBSeller@7fab5ac38b19dbd842ca81a259186c613c90f3c1",
+  "upstream": "e-cidade/e-cidade-DBSeller@4403143407ac8925dbc0143d6f8f3fd2be0cf5e8",
   "capabilities": [
     "large-object-facade"
   ],
@@ -35,7 +35,7 @@
       "type": "source-signature",
       "source": {
         "path": "ecidade/model/protocolo/ProcessoDocumento.model.php",
-        "git_blob": "4935e0514c8b206853f071d60612647503cedb99"
+        "git_blob": "a55762f32a27c3d00cc348ca93a7ab4588d2be09"
       }
     },
     {

@@ -41,7 +41,7 @@ jobs:
           - fork: dbseller
             php: '5.6'
             repository: e-cidade-DBSeller
-            commit: 7fab5ac38b19dbd842ca81a259186c613c90f3c1
+            commit: 4403143407ac8925dbc0143d6f8f3fd2be0cf5e8
             source: ecidade/std/DBLargeObject.php
           - fork: contass
             php: '7.4'
@@ -134,42 +134,25 @@ jobs:
           php tests/upstream/protocolo-model-contract.php \
             "$RUNNER_TEMP/fork-original/$source_model" \
             "${{ matrix.fork }}"
-      - name: Characterize pinned generated DAO and legacy E-Storage regression
+      - name: Exercise pinned generated DAO and E-Storage contract
         if: matrix.fork != 'contass'
         run: |
           if [ "${{ matrix.fork }}" = dbseller ]; then
             prefix=ecidade/
+            variant=fixed
           else
             prefix=
+            variant=legacy
           fi
           php tests/upstream/protocolo-generated-dao-contract.php \
             "$RUNNER_TEMP/fork-original/${prefix}model/protocolo/ProcessoDocumento.model.php" \
             "$RUNNER_TEMP/fork-original/${prefix}classes/db_protprocessodocumento_classe.php" \
-            "${{ matrix.fork }}" legacy
-      - name: Test unmerged DBSeller correction on original PHP 5.6 DAO
-        if: matrix.fork == 'dbseller'
-        shell: bash
-        run: |
-          set -euo pipefail
-          root="$RUNNER_TEMP/dbseller-pr2-preview"
-          mkdir -p "$root"
-          git -C "$root" init -q
-          git -C "$root" remote add origin https://github.com/e-cidade/e-cidade-DBSeller.git
-          git -C "$root" sparse-checkout init --no-cone
-          git -C "$root" sparse-checkout set --no-cone /ecidade/model/protocolo/ProcessoDocumento.model.php
-          git -C "$root" fetch --depth 1 --filter=blob:none origin 2a17b7ad3cacffacdce9dfb52679c60a54ee3836
-          git -C "$root" checkout --quiet --detach FETCH_HEAD
-          test "$(git -C "$root" rev-parse HEAD)" = 2a17b7ad3cacffacdce9dfb52679c60a54ee3836
-          php tests/upstream/protocolo-generated-dao-contract.php \
-            "$root/ecidade/model/protocolo/ProcessoDocumento.model.php" \
-            "$RUNNER_TEMP/fork-original/ecidade/classes/db_protprocessodocumento_classe.php" \
-            dbseller fixed
-
+            "${{ matrix.fork }}" "$variant"
       - name: Fetch and attest DBSeller candidate from its exact commit
         if: matrix.fork == 'dbseller'
         shell: bash
         env:
-          DBS_SHA: ${{ inputs.dbseller_sha || 'a43ee536b666eaca9312660d96272c6c910c1494' }}
+          DBS_SHA: ${{ inputs.dbseller_sha || '4403143407ac8925dbc0143d6f8f3fd2be0cf5e8' }}
           DBSELLER_CANDIDATE_PR: ${{ inputs.dbseller_pr || '' }}
         run: bash .github/scripts/fetch-dbseller-candidate.sh "$DBS_SHA" "$RUNNER_TEMP/dbseller-candidate"
       - name: Exercise candidate source through PHP 5.6 and PostgreSQL

@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 # Inventário inicial de armazenamento — DBSeller pública
 
 **Fonte exclusivamente pública:** `e-cidade/e-cidade-DBSeller` no commit
-`7fab5ac38b19dbd842ca81a259186c613c90f3c1`. Não houve acesso a
+`4403143407ac8925dbc0143d6f8f3fd2be0cf5e8`. Não houve acesso a
 servidores, bancos ou documentos de terceiros. Nenhum caminho absoluto
 de computador é documentado aqui.
 
@@ -58,8 +58,9 @@ envia `"false"` como string para `p01_estorage`, e o DAO a
 converte em SQL `TRUE` por coerção booleana do PHP. O documento foi
 armazenado pela fachada OID, mas identificado como E-Storage no registro.
 No código DBSeller, a exclusão ainda executa o tombstone do OID.
-A correção da classificação e do envio do booleano está proposta em
-`e-cidade/e-cidade-DBSeller#2`, pendente de revisão obrigatória.
+A correção da classificação, gravação booleana e criação com `'f'`
+foi incorporada em `e-cidade/e-cidade-DBSeller#2` e repinada no manifesto.
+O desvio histórico permanece como evidência, não como comportamento aceito na revisão atual.
 
 Esse experimento utiliza **o DAO real**, mas um esquema simplificado e
 sessão/auditoria simuladas: não equivale ao bootstrap completo do ERP.

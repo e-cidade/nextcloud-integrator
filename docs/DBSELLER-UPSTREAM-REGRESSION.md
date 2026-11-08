@@ -14,8 +14,8 @@ replacing the shared SPI. There are two complementary triggers:
 1. DBSeller `push` and `pull_request` invoke the public, reusable
    integrator workflows, passing the source commit SHA and, for fork-based pull requests, the PR
    number. The fetcher resolves GitHub's public PR head ref and verifies it
-   matches the supplied exact SHA (fail closed if the PR moved). The caller is proposed
-   in `e-cidade/e-cidade-DBSeller/.github/workflows/integrator-compatibility.yml`.
+   matches the supplied exact SHA (fail closed if the PR moved). The caller is implemented
+   in `e-cidade/e-cidade-DBSeller/.github/workflows/nextcloud-integrator-compatibility.yml`.
    No token, shared secret, or write permission is required.
 2. The integrator's `dbseller-upstream-watch.yml` resolves the current
    `main` SHA once daily and calls **the same** workflows. It is a
@@ -35,10 +35,11 @@ facade. The manifests and runtime production flags are untouched.
 | Integrated remote regression | Docker, PostgreSQL 11, Nextcloud 35, verified HTTPS | Same candidate DAO/model, shared SPI, outbox and worker, read-after-write, immutable revisions, checksum, actor revocation, municipality isolation, rollback, delete and no new PG large object/bytea for the synthetic path |
 | Integrator baseline | Existing pinned suites, PHPUnit, PHPStan and workflow security checks | The known public revisions and all shared core contracts remain independently reproducible |
 
-The historical model blob `4935e0514c8b206853f071d60612647503cedb99`
-is explicitly characterized as **legacy-buggy** while the upstream
-`e-cidade/e-cidade-DBSeller#2` fix is pending. Any other model blob
-must pass the **fixed** semantic contract. A source change is not
+The current pinned DBSeller source is revision `4403143407ac8925dbc0143d6f8f3fd2be0cf5e8` with
+model blob `a55762f32a27c3d00cc348ca93a7ab4588d2be09`, including the corrected OID inclusion path.
+The historical `4935e0514c8b206853f071d60612647503cedb99`
+model remains explicitly **legacy-buggy**; new revisions must pass the
+fixed semantic contract, including insertion with the textual PostgreSQL `f`. A source change is not
 automatically approved or repinned merely because CI is green.
 
 The candidate executes as PHP in a *disposable* CI runner: do not use
@@ -63,11 +64,10 @@ contract and HTTPS integration tests provide more relevant evidence.
 
 ## Activation
 
-Merge the integrator changes first, then the DBSeller caller workflow.
-The caller points at the integrator's `main` reusable workflows; before
-that merge the GitHub Actions `workflow_call` entrypoints do not exist
-there. Add the upstream caller check as a required branch check once it
-has been observed on `main` and on a test PR. GitHub schedules are not
+The integrator and DBSeller caller workflows have both been merged.
+The upstream PR and main push checks have been observed running successfully.
+Enable the caller check as a required branch check through the repository's
+reviewed ruleset; this is not automatically changed by source-code CI. GitHub schedules are not
 a guarantee of an immediate reaction to every change; DBSeller push/PR
 events are the primary trigger.
 
