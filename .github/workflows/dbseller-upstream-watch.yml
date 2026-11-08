@@ -35,13 +35,13 @@ jobs:
   native:
     name: PHP 5.6 and SQL contract at upstream main
     needs: resolve
-    uses: $/.github/workflows/fork-source-runtime.yml
+    uses: ./.github/workflows/fork-source-runtime.yml # zizmor: ignore[self-repository] actionlint 1.7.12 requires this syntax
     with:
       dbseller_sha: ${{ needs.resolve.outputs.dbseller_sha }}
 
   https:
     name: Nextcloud HTTPS contract at upstream main
     needs: resolve
-    uses: $/.github/workflows/nextcloud-http-contract.yml
+    uses: ./.github/workflows/nextcloud-http-contract.yml # zizmor: ignore[self-repository] actionlint 1.7.12 requires this syntax
     with:
       dbseller_sha: ${{ needs.resolve.outputs.dbseller_sha }}
