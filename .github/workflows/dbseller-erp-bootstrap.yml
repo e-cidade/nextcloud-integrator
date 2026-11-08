@@ -157,6 +157,18 @@ jobs:
             exit 1
           fi
           rm -f "$log" "$DBSELLER_ERP_ROOT/ecidade/docker/ecidade_base.sql"
+          # Vendor ships a .dist prerequisite manifest but docker/install.sh
+          # does not promote it. Without this file, index.php and login.php
+          # display a configuration error or redirect instead of the login.
+          # Copy only inside the disposable CI checkout after original setup.
+          "${compose[@]}" exec -T erp-web bash -ec '
+            set -e
+            cd /var/www/html
+            test -s config/require_extensions.xml.dist
+            test ! -e config/require_extensions.xml
+            cp config/require_extensions.xml.dist config/require_extensions.xml
+            test -s config/require_extensions.xml
+          '
 
       - name: Remove installer internet access before real HTTP tests
         shell: bash

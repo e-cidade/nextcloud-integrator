@@ -10,7 +10,7 @@ if [[ ${ECIDADE_ERP_DISPOSABLE_CI:-} != 1 || ${DB_HOST:-} != erp-db \
 fi
 cd /var/www/html
 php -r 'exit(strpos(PHP_VERSION, "5.6.") === 0 ? 0 : 1);'
-for path in .env libs/db_conn.php config/application.php vendor/autoload.php; do
+for path in .env libs/db_conn.php config/application.php config/require_extensions.xml vendor/autoload.php; do
   test -s "$path" || { echo "Vendor installation did not create $path" >&2; exit 1; }
 done
 
