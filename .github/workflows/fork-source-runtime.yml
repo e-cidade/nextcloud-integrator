@@ -169,7 +169,7 @@ jobs:
         if: matrix.fork == 'dbseller'
         shell: bash
         env:
-          DBS_SHA: ${{ inputs.dbseller_sha || '2a17b7ad3cacffacdce9dfb52679c60a54ee3836' }}
+          DBS_SHA: ${{ inputs.dbseller_sha || 'a43ee536b666eaca9312660d96272c6c910c1494' }}
           DBSELLER_CANDIDATE_PR: ${{ inputs.dbseller_pr || '' }}
         run: bash .github/scripts/fetch-dbseller-candidate.sh "$DBS_SHA" "$RUNNER_TEMP/dbseller-candidate"
       - name: Exercise candidate source through PHP 5.6 and PostgreSQL
