@@ -174,3 +174,15 @@ jobs:
             "$source_root/model/protocolo/ProcessoDocumento.model.php" \
             "$source_root/classes/db_protprocessodocumento_classe.php" \
             dbseller "$DBSELLER_CANDIDATE_VARIANT"
+
+  vendor-erp:
+    # The already-merged DBSeller push/PR caller passes an immutable SHA.
+    # Do not run another expensive vendor install for regular integrator PRs,
+    # which have an independent direct bootstrap workflow.
+    if: ${{ inputs.dbseller_sha != '' }}
+    needs: native
+    name: Original DBSeller ERP install, SQL and authenticated HTTP
+    uses: e-cidade/nextcloud-integrator/.github/workflows/dbseller-erp-bootstrap.yml@main
+    with:
+      dbseller_sha: ${{ inputs.dbseller_sha }}
+      dbseller_pr: ${{ inputs.dbseller_pr || '' }}
