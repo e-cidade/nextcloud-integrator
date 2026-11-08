@@ -321,13 +321,17 @@ try {
     );
     // The original model, business row and SPI outbox must share SQL visibility.
     $sameTransactionPath = $model->download();
-    assertGenerated(file_get_contents($sameTransactionPath) === $bytes,
-        'Original model cannot read uncommitted bytes in its own transaction');
+    assertGenerated(
+        file_get_contents($sameTransactionPath) === $bytes,
+        'Original model cannot read uncommitted bytes in its own transaction'
+    );
     unlink($sameTransactionPath);
-    assertGenerated((int)pg_fetch_result(pg_query($reader,
+    assertGenerated((int)pg_fetch_result(pg_query(
+        $reader,
         'SELECT count(*) FROM ' . $syntheticSchema . '.protprocessodocumento'
     ), 0, 0) === 0, 'Original DAO exposed an uncommitted business row');
-    assertGenerated((int)pg_fetch_result(pg_query($reader,
+    assertGenerated((int)pg_fetch_result(pg_query(
+        $reader,
         'SELECT count(*) FROM ecidade_nextcloud.operations WHERE legacy_id=' . $oid
         . "::oid AND operation_type='write'"
     ), 0, 0) === 0, 'Original DAO exposed an uncommitted document outbox');
@@ -335,13 +339,17 @@ try {
     $beforeWorker = new ProcessoDocumento($businessId);
     db_query('BEGIN');
     $pendingPath = $beforeWorker->download();
-    assertGenerated(file_get_contents($pendingPath) === $bytes,
-        'Original DAO could not read committed bytes before asynchronous worker');
+    assertGenerated(
+        file_get_contents($pendingPath) === $bytes,
+        'Original DAO could not read committed bytes before asynchronous worker'
+    );
     unlink($pendingPath);
     db_query('COMMIT');
     assertGenerated($worker->runOnce(), 'Shared worker failed to finalize original DAO upload');
-    assertGenerated(hash('sha256', $spi->read($context, $oid)) === hash('sha256', $bytes),
-        'Nextcloud reconciliation modified original document checksum');
+    assertGenerated(
+        hash('sha256', $spi->read($context, $oid)) === hash('sha256', $bytes),
+        'Nextcloud reconciliation modified original document checksum'
+    );
 
     // Compare the unchanged public source with a pinned proposed vendor fix.
     // Both versions must still retrieve identical bytes from the SPI bridge.
@@ -375,15 +383,19 @@ try {
         ];
         foreach ($historical as $case) {
             $loaded->setStorage($case[0]);
-            assertGenerated($loaded->isStorage() === $case[1],
-                'Proposed upstream fix misclassified historical storage value');
+            assertGenerated(
+                $loaded->isStorage() === $case[1],
+                'Proposed upstream fix misclassified historical storage value'
+            );
         }
         $loaded->setStorage('t');
         $attempts = \App\Domain\Configuracao\Helpers\StorageHelper::$attempts;
         db_query('BEGIN');
         $truePath = $loaded->download();
-        assertGenerated(file_get_contents($truePath) === $bytes,
-            'Legacy fallback after E-Storage error lost original bytes');
+        assertGenerated(
+            file_get_contents($truePath) === $bytes,
+            'Legacy fallback after E-Storage error lost original bytes'
+        );
         unlink($truePath);
         db_query('COMMIT');
         assertGenerated(\App\Domain\Configuracao\Helpers\StorageHelper::$attempts
@@ -396,10 +408,12 @@ try {
     $loaded->setDescricao('Updated original generated DAO metadata');
     assertGenerated((bool)$loaded->salvar(), 'Original DAO metadata update failed');
     db_query('COMMIT');
-    assertGenerated(pg_fetch_result(db_query(
-        'SELECT p01_descricao FROM protprocessodocumento WHERE p01_sequencial=' . $businessId
-    ), 0, 0) === 'Updated original generated DAO metadata',
-        'Original DAO did not persist metadata update');
+    assertGenerated(
+        pg_fetch_result(db_query(
+            'SELECT p01_descricao FROM protprocessodocumento WHERE p01_sequencial=' . $businessId
+        ), 0, 0) === 'Updated original generated DAO metadata',
+        'Original DAO did not persist metadata update'
+    );
 
     $policy->revoked = true;
     db_query('BEGIN');
@@ -416,7 +430,8 @@ try {
     $foreignDenied = false;
     try {
         (new DocumentCoordinator($readerLedger, $remote))->read(
-            new Scope('installation-b', 'municipio-b'), $oid
+            new Scope('installation-b', 'municipio-b'),
+            $oid
         );
     } catch (Exception $error) {
         $foreignDenied = true;
@@ -426,29 +441,41 @@ try {
     // Byte updates use the same original DBLargeObject API, not salvar().
     $replacement = "original-dao-v2\0" . str_repeat('C', 4096);
     db_query('BEGIN');
-    assertGenerated(DBLargeObject::writeContent($replacement, $oid) === strlen($replacement),
-        'Original legacy facade rejected staged byte update');
+    assertGenerated(
+        DBLargeObject::writeContent($replacement, $oid) === strlen($replacement),
+        'Original legacy facade rejected staged byte update'
+    );
     $provisional = $loaded->download();
-    assertGenerated(file_get_contents($provisional) === $replacement,
-        'Original model did not expose its own provisional bytes');
+    assertGenerated(
+        file_get_contents($provisional) === $replacement,
+        'Original model did not expose its own provisional bytes'
+    );
     unlink($provisional);
     db_query('ROLLBACK');
-    assertGenerated($spi->read($context, $oid) === $bytes,
-        'Aborted original DAO update was exposed after ROLLBACK');
+    assertGenerated(
+        $spi->read($context, $oid) === $bytes,
+        'Aborted original DAO update was exposed after ROLLBACK'
+    );
 
     db_query('BEGIN');
-    assertGenerated(DBLargeObject::writeContent($replacement, $oid) === strlen($replacement),
-        'Original legacy facade rejected committed byte update');
+    assertGenerated(
+        DBLargeObject::writeContent($replacement, $oid) === strlen($replacement),
+        'Original legacy facade rejected committed byte update'
+    );
     db_query('COMMIT');
-    assertGenerated($spi->read($context, $oid) === $replacement,
-        'Original DAO version two unreadable immediately after COMMIT');
+    assertGenerated(
+        $spi->read($context, $oid) === $replacement,
+        'Original DAO version two unreadable immediately after COMMIT'
+    );
     // A fresh instance of the existing worker must recover the SQL outbox.
     $restartedWorker = new DocumentReconciler(new PgDocumentLedger($reader), $remote, $scope);
     assertGenerated($restartedWorker->runOnce(), 'Shared worker failed after reconstruction');
     db_query('BEGIN');
     $updatedPath = $loaded->download();
-    assertGenerated(file_get_contents($updatedPath) === $replacement,
-        'Original business download did not retrieve immutable version two');
+    assertGenerated(
+        file_get_contents($updatedPath) === $replacement,
+        'Original business download did not retrieve immutable version two'
+    );
     unlink($updatedPath);
     db_query('COMMIT');
     assertGenerated((int)pg_fetch_result(db_query(
@@ -459,11 +486,13 @@ try {
         'SELECT count(*) FROM ecidade_nextcloud.operations '
         . 'WHERE legacy_id=' . $oid . "::oid AND operation_type='write'"
     ), 0, 0) === 2, 'Original DAO did not retain two immutable revisions');
-    assertGenerated(pg_fetch_result(db_query(
-        'SELECT checksum FROM ecidade_nextcloud.operations '
+    assertGenerated(
+        pg_fetch_result(db_query(
+            'SELECT checksum FROM ecidade_nextcloud.operations '
         . 'WHERE legacy_id=' . $oid . "::oid AND operation_type='write' ORDER BY id DESC LIMIT 1"
-    ), 0, 0) === hash('sha256', $replacement),
-        'Immutable version two checksum differs from original bytes');
+        ), 0, 0) === hash('sha256', $replacement),
+        'Immutable version two checksum differs from original bytes'
+    );
 
     db_query('BEGIN');
     assertGenerated($loaded->excluir() === true, 'Original DAO rollback delete failed');
@@ -471,8 +500,10 @@ try {
     assertGenerated((int)pg_fetch_result(db_query(
         'SELECT count(*) FROM protprocessodocumento WHERE p01_sequencial=' . $businessId
     ), 0, 0) === 1, 'ROLLBACK deleted original business record');
-    assertGenerated($spi->read($context, $oid) === $replacement,
-        'ROLLBACK tombstoned original document bytes');
+    assertGenerated(
+        $spi->read($context, $oid) === $replacement,
+        'ROLLBACK tombstoned original document bytes'
+    );
 
     // CPD and DBSeller characterization still intentionally differ.
     // CPD legacy skips its OID tombstone if the wrongly stored E-Storage
@@ -513,8 +544,10 @@ try {
         . "WHERE table_schema IN ('" . $syntheticSchema . "','ecidade_nextcloud') "
         . "AND data_type='bytea'"
     ), 0, 0) === 0, 'Generated DAO or shared journal duplicated bytes in bytea');
-    assertGenerated(count(glob($workspace . '/tmp/*')) === 0,
-        'Original business download left persistent files in temporary staging');
+    assertGenerated(
+        count(glob($workspace . '/tmp/*')) === 0,
+        'Original business download left persistent files in temporary staging'
+    );
 
     echo 'PASS original ' . $fork . ' Protocolo model and generated DAO (' . $variant . ')'
         . ($variant === 'legacy' ? ': demonstrated E-Storage flag regression' : ': OID classification corrected')
