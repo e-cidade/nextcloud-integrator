@@ -169,6 +169,24 @@ jobs:
             cp config/require_extensions.xml.dist config/require_extensions.xml
             test -s config/require_extensions.xml
           '
+          # The real ERP opens extension/log/*.log during authentication.
+          # The read-write checkout belongs to the runner, not Apache's
+          # www-data user. Restrict write access to this disposable log
+          # directory; never chmod the entire ERP tree world-writable.
+          "${compose[@]}" exec -T erp-web bash -ec '
+            set -eu
+            cd /var/www/html
+            test -d extension
+            test ! -L extension/log
+            install -d -m 0770 -o www-data -g www-data extension/log
+            if find extension/log -type l | grep -q .; then
+              echo "Unsafe symlink in disposable ERP log directory" >&2
+              exit 1
+            fi
+            chown -R www-data:www-data extension/log
+            chmod -R u+rwX,g+rwX,o-rwx extension/log
+            su -s /bin/sh www-data -c "test -w /var/www/html/extension/log"
+          '
 
       - name: Remove installer internet access before real HTTP tests
         shell: bash

@@ -24,7 +24,8 @@ shipped example database** inside an ephemeral checkout, runs
 `ecidade/docker/install.sh`, and checks outcomes rather than trusting the
 script's success message.
 
-Checks include PHP 5.6, Composer vendor autoload, the generated ERP config,
+Checks include PHP 5.6, Composer vendor autoload, the generated ERP config, the original missing prerequisite XML copied
+from its vendor `.dist` file, a narrowly writable Apache log directory,
 PostgreSQL 16 with LATIN1 encoding, at least 100 application tables, presence
 of the Protocolo/user tables, the real Apache login page, and an authenticated
 session using the vendor-documented demo account. It compares native PG large
