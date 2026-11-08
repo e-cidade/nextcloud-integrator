@@ -141,7 +141,7 @@ if [[ "$rpc_code" != 200 ]] || ! php -r '
         if (stripos($line, "Location:") !== 0) { continue; }
         $path = parse_url(trim(substr($line, 9)), PHP_URL_PATH);
         if (is_string($path) && preg_match("#^[a-zA-Z0-9_./-]{1,100}$#D", $path)) {
-          fwrite(STDERR, "ERP RPC redirect path: " . $path . "\\n");
+          fwrite(STDERR, "ERP RPC redirect path: " . $path . "\n");
         }
       }
     ' "$temp/protocol-headers"

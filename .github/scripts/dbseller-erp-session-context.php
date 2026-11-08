@@ -19,7 +19,11 @@ if (PHP_SAPI !== 'cli' || getenv('ECIDADE_ERP_DISPOSABLE_CI') !== '1'
 
 $sessionId = null;
 foreach (file($argv[1], FILE_IGNORE_NEW_LINES) as $line) {
-    if ($line === '' || strpos($line, '#') === 0) {
+    // Netscape cookie files prefix HttpOnly session cookies with a '#'
+    // comment marker. Such records are still active authentication cookies.
+    if (strpos($line, '#HttpOnly_') === 0) {
+        $line = substr($line, strlen('#HttpOnly_'));
+    } elseif ($line === '' || strpos($line, '#') === 0) {
         continue;
     }
     $fields = explode("\t", $line);
