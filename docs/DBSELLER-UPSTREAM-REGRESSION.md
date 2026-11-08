@@ -12,7 +12,9 @@ without silently moving the production manifest, installing a server, or
 replacing the shared SPI. There are two complementary triggers:
 
 1. DBSeller `push` and `pull_request` invoke the public, reusable
-   integrator workflows, passing the source commit SHA. The caller is proposed
+   integrator workflows, passing the source commit SHA and, for fork-based pull requests, the PR
+   number. The fetcher resolves GitHub's public PR head ref and verifies it
+   matches the supplied exact SHA (fail closed if the PR moved). The caller is proposed
    in `e-cidade/e-cidade-DBSeller/.github/workflows/integrator-compatibility.yml`.
    No token, shared secret, or write permission is required.
 2. The integrator's `dbseller-upstream-watch.yml` resolves the current

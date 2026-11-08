@@ -12,6 +12,11 @@ if [ "$#" -ne 2 ] || [ -z "${GITHUB_ENV:-}" ]; then
 fi
 sha="$1"
 root="$2"
+pr="${DBSELLER_CANDIDATE_PR:-}"
+if [ -n "$pr" ] && ! [[ "$pr" =~ ^[1-9][0-9]*$ ]]; then
+  echo "Invalid GitHub pull request number" >&2
+  exit 2
+fi
 if ! [[ "$sha" =~ ^[a-f0-9]{40}$ ]]; then
   echo "Refusing non-immutable DBSeller candidate ref" >&2
   exit 2
@@ -28,7 +33,17 @@ git -C "$root" sparse-checkout set --no-cone \
   /ecidade/std/DBLargeObject.php \
   /ecidade/model/protocolo/ProcessoDocumento.model.php \
   /ecidade/classes/db_protprocessodocumento_classe.php
-git -C "$root" fetch --depth 1 --filter=blob:none origin "$sha"
+if [ -n "$pr" ]; then
+  # This supports external fork PRs via GitHub's immutable pull request head
+  # ref, but never trusts the ref without checking its exact commit SHA.
+  git -C "$root" fetch --depth 1 --filter=blob:none origin "refs/pull/$pr/head"
+else
+  git -C "$root" fetch --depth 1 --filter=blob:none origin "$sha"
+fi
+test "$(git -C "$root" rev-parse FETCH_HEAD)" = "$sha" || {
+  echo "Upstream pull request changed during checkout" >&2
+  exit 1
+}
 git -C "$root" checkout --quiet --detach FETCH_HEAD
 test "$(git -C "$root" rev-parse HEAD)" = "$sha"
 
