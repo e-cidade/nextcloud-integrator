@@ -17,6 +17,8 @@ if (PHP_SAPI !== 'cli' || getenv('ECIDADE_ERP_DISPOSABLE_CI') !== '1'
     exit(2);
 }
 
+// The original V3 Window/Session class explicitly uses ECIDADEWINDOWMAIN,
+// NOT PHPSESSID, for the main browser window.
 $sessionId = null;
 foreach (file($argv[1], FILE_IGNORE_NEW_LINES) as $line) {
     // Netscape cookie files prefix HttpOnly session cookies with a '#'
@@ -27,7 +29,7 @@ foreach (file($argv[1], FILE_IGNORE_NEW_LINES) as $line) {
         continue;
     }
     $fields = explode("\t", $line);
-    if (count($fields) === 7 && $fields[5] === 'PHPSESSID'
+    if (count($fields) === 7 && $fields[5] === 'ECIDADEWINDOWMAIN'
         && preg_match('/^[a-zA-Z0-9,-]{16,128}$/D', $fields[6])) {
         $sessionId = $fields[6];
     }
@@ -37,6 +39,7 @@ if ($sessionId === null) {
     exit(1);
 }
 
+session_name('ECIDADEWINDOWMAIN');
 session_id($sessionId);
 if (!session_start() || !isset($_SESSION['DB_login'], $_SESSION['DB_id_usuario'])
     || $_SESSION['DB_login'] !== 'dbseller'
