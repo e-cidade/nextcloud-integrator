@@ -81,10 +81,36 @@ if [[ "$login_code" != 200 ]]; then
   fi
   exit 1
 fi
-grep -Eiq 'Abrindo E-cidade|inicio.php\?uso=' "$temp/login" || {
+if ! grep -Eiq 'Abrindo E-cidade|inicio.php\?uso=' "$temp/login"; then
   echo 'Real ERP login did not create an authenticated municipal session' >&2
+  if grep -Fq 'testaLogin' "$temp/login"; then
+    echo 'Original ERP returned a browser-side authentication rejection' >&2
+  fi
+  if grep -Eiq 'registrasistema|registro do sistema' "$temp/login"; then
+    echo 'Original ERP returned its initial-registration flow' >&2
+  fi
+  # Check counts only; no ERP rows, session values or hashes are printed.
+  demo_hash="$(php -r 'echo sha1(md5("dbseller"));')"
+  if metrics="$(psql -X -q -v ON_ERROR_STOP=1 -At \
+      -v "demo_hash=$demo_hash" -h "$DB_HOST" -U "$DB_USERNAME" -d ecidade <<'SQL'
+SELECT public.fc_set_pg_search_path();
+SELECT (SELECT COUNT(*) FROM db_usuarios WHERE login = 'dbseller'),
+       (SELECT COUNT(*) FROM db_usuarios WHERE login = 'dbseller' AND usuarioativo = 1),
+       (SELECT COUNT(*) FROM db_usuarios WHERE login = 'dbseller' AND senha = :'demo_hash'),
+       (SELECT COUNT(*) FROM db_depusu);
+SQL
+  )"; then
+    summary="$(printf '%s\n' "$metrics" | tail -n 1)"
+    if [[ "$summary" =~ ^[0-9]+\|[0-9]+\|[0-9]+\|[0-9]+$ ]]; then
+      echo "Vendor demo fixture counts (user/active/hash-match/departments): $summary" >&2
+    else
+      echo 'Vendor demo fixture counts unavailable' >&2
+    fi
+  else
+    echo 'Vendor demo authentication fixture query failed' >&2
+  fi
   exit 1
-}
+fi
 
 after="$(psql -X -q -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USERNAME" -d ecidade \
   -tA -c 'SELECT count(*) FROM pg_catalog.pg_largeobject_metadata')"
