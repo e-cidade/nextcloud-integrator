@@ -35,7 +35,7 @@ services:
       ECIDADE_ERP_DISPOSABLE_CI: "1"
     volumes:
       - ${DBSELLER_ERP_ROOT:?Exact, disposable DBSeller checkout required}/ecidade:/var/www/html
-      - ./dbseller-erp:/ci:ro
+      - ../.github/scripts:/ci:ro
     networks:
       - erp-internal
       - setup-egress

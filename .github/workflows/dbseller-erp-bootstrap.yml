@@ -173,7 +173,7 @@ jobs:
         run: |
           set -euo pipefail
           docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml \
-            exec -T erp-web bash /ci/smoke.sh
+            exec -T erp-web bash /ci/dbseller-erp-smoke.sh
 
       - name: Record precisely what the real-ERP gate proves
         if: success()
