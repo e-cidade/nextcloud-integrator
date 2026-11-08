@@ -60,6 +60,23 @@ $daoBlobs = [
     'dbseller' => 'b1f52999d0f0e630e9dfcac7a04fa93a161e136a',
     'cpd' => '9e130f3a86377bc17b8e7833c6b54a5d5d782939',
 ];
+// An upstream CI candidate is bound to exact Git tree blobs by the fetch
+// script; the official manifest and immutable pinned tests are not changed.
+$candidateModel = getenv('ECIDADE_DBSELLER_CANDIDATE_MODEL_BLOB');
+$candidateDao = getenv('ECIDADE_DBSELLER_CANDIDATE_DAO_BLOB');
+$candidate = $candidateModel !== false || $candidateDao !== false;
+if ($candidate) {
+    if ($fork !== 'dbseller'
+        || !is_string($candidateModel) || !is_string($candidateDao)
+        || !preg_match('/^[a-f0-9]{40}$/D', $candidateModel)
+        || !preg_match('/^[a-f0-9]{40}$/D', $candidateDao)
+        || !in_array($variant, ['legacy', 'fixed'], true)
+        || (($candidateModel === $modelBlobs['dbseller']['legacy']) !== ($variant === 'legacy'))) {
+        throw new RuntimeException('Invalid upstream candidate blob provenance or regression mode');
+    }
+    $modelBlobs['dbseller'][$variant] = $candidateModel;
+    $daoBlobs['dbseller'] = $candidateDao;
+}
 if (!isset($modelBlobs[$fork][$variant])) {
     throw new RuntimeException('Unsupported pinned original DAO test variant');
 }
@@ -221,7 +238,8 @@ chdir($workspace);
 try {
     // Original DAO SQL is not rewritten. Only fixed synthetic table names,
     // sequence and a read-only account-logging seam are provided.
-    $syntheticSchema = 'generated_dao_synthetic_' . $fork . '_' . $variant;
+    $syntheticSchema = 'generated_dao_synthetic_' . $fork . '_' . $variant
+        . ($candidate ? '_candidate' : '');
     db_query('CREATE SCHEMA ' . $syntheticSchema);
     db_query('SET search_path TO ' . $syntheticSchema . ',public');
     db_query('CREATE SEQUENCE protprocessodocumento_p01_sequencial_seq');

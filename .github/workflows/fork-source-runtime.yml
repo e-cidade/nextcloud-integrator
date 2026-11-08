@@ -10,6 +10,12 @@ name: Pinned fork source runtime contracts
 on:
   push:
   pull_request:
+  workflow_call:
+    inputs:
+      dbseller_sha:
+        description: Exact 40-character public DBSeller revision
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -67,6 +73,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: e-cidade/nextcloud-integrator
+          ref: ${{ github.repository == 'e-cidade/nextcloud-integrator' && github.ref || 'main' }}
           persist-credentials: false
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2.40.0
         with:
@@ -151,3 +159,27 @@ jobs:
             "$root/ecidade/model/protocolo/ProcessoDocumento.model.php" \
             "$RUNNER_TEMP/fork-original/ecidade/classes/db_protprocessodocumento_classe.php" \
             dbseller fixed
+
+      - name: Fetch and attest DBSeller candidate from its exact commit
+        if: matrix.fork == 'dbseller'
+        shell: bash
+        env:
+          DBS_SHA: ${{ inputs.dbseller_sha || '2a17b7ad3cacffacdce9dfb52679c60a54ee3836' }}
+        run: bash tests/upstream/fetch-dbseller-candidate.sh "$DBS_SHA" "$RUNNER_TEMP/dbseller-candidate"
+      - name: Exercise candidate source through PHP 5.6 and PostgreSQL
+        if: matrix.fork == 'dbseller'
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_root="$RUNNER_TEMP/dbseller-candidate/ecidade"
+          php -l "$source_root/std/DBLargeObject.php"
+          php -l "$source_root/model/protocolo/ProcessoDocumento.model.php"
+          php -l "$source_root/classes/db_protprocessodocumento_classe.php"
+          php tests/upstream/facade-signature.php \
+            "$source_root/std/DBLargeObject.php" modules/dbseller/DBLargeObject.php
+          php tests/upstream/native-large-object-contract.php \
+            dbseller "$source_root/std/DBLargeObject.php"
+          php tests/upstream/protocolo-generated-dao-contract.php \
+            "$source_root/model/protocolo/ProcessoDocumento.model.php" \
+            "$source_root/classes/db_protprocessodocumento_classe.php" \
+            dbseller "$DBSELLER_CANDIDATE_VARIANT"
