@@ -112,6 +112,24 @@ SQL
   exit 1
 fi
 
+# Exercise the ORIGINAL Protocolo RPC through the authenticated vendor PHP
+# session. An unknown action deliberately performs no document mutation: this
+# isolates framework/DB/session compatibility before E2E document cutover.
+# This is not a substitute for CRUD against Nextcloud.
+rpc_code="$(curl --silent --show-error --max-time 40 \
+  --request POST --data-urlencode 'json={"exec":"ecidade_ci_session_probe"}' \
+  --cookie-jar "$temp/cookies" --cookie "$temp/cookies" \
+  --output "$temp/protocol" --write-out '%{http_code}' \
+  http://127.0.0.1/prot4_processodocumento.RPC.php)"
+if [[ "$rpc_code" != 200 ]] || ! php -r '
+  $response = json_decode(file_get_contents($argv[1]), true);
+  exit(is_array($response) && isset($response["iStatus"])
+    && (int)$response["iStatus"] === 1 ? 0 : 1);
+' "$temp/protocol"; then
+  echo "Real ERP Protocolo RPC failed its authenticated session probe (HTTP $rpc_code)" >&2
+  exit 1
+fi
+
 after="$(psql -X -q -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USERNAME" -d ecidade \
   -tA -c 'SELECT count(*) FROM pg_catalog.pg_largeobject_metadata')"
 [[ "$large_objects_before" == "$after" ]] || {
