@@ -6,7 +6,7 @@
 /**
  * Exercise the original generated DAO and Protocolo model through the shared
  * SPI, with an isolated fake remote or verified-HTTPS disposable Nextcloud.
- * Legacy is a regression characterization; fixed is an unmerged PR preview.
+ * Legacy characterizes historical behavior; fixed is the approved public source.
  * The ERP bootstrap, business schema, session and HTTP route remain untested.
  */
 $onCi = getenv('GITHUB_ACTIONS') === 'true' && getenv('PGHOST') === '127.0.0.1';
@@ -49,7 +49,7 @@ if ($liveHttps && $fork !== 'dbseller') {
 $modelBlobs = [
     'dbseller' => [
         'legacy' => '4935e0514c8b206853f071d60612647503cedb99',
-        'fixed' => '82454dc863697abaf9c754e5cd9079d0d9a4c2ce',
+        'fixed' => 'a55762f32a27c3d00cc348ca93a7ab4588d2be09',
     ],
     'cpd' => [
         'legacy' => 'b2b62a1cfc49bc402f5a10a4b063219ec7f230e6',
@@ -319,7 +319,7 @@ try {
     // A PostgreSQL 'f' is a nonempty PHP 5.6 string. The candidate must
     // decide to allocate an OID using normalized state during INSERT, not
     // merely serialize the final p01_estorage flag correctly.
-    if ($candidate && $variant === 'fixed') {
+    if ($fork === 'dbseller' && $variant === 'fixed') {
         $model->setStorage('f');
     }
 

@@ -20,7 +20,7 @@ if (PHP_SAPI !== 'cli' || getenv('ECIDADE_SYNTHETIC_FORK_CONTRACT') !== '1'
 }
 $fork = isset($argv[2]) ? $argv[2] : 'dbseller';
 $pinnedModelHashes = [
-    'dbseller' => '4935e0514c8b206853f071d60612647503cedb99',
+    'dbseller' => 'a55762f32a27c3d00cc348ca93a7ab4588d2be09',
     'contass' => '2eb3782e84400d40bae177d598445e26140ddf93',
     'cpd' => 'b2b62a1cfc49bc402f5a10a4b063219ec7f230e6',
 ];
@@ -215,7 +215,8 @@ class cl_protprocessodocumento
             $this->p01_protprocesso, $this->p01_descricao, $this->p01_documento,
             $this->p01_nomedocumento, $this->p01_data, $this->p01_usuario,
             $this->p01_procandamint,
-            $this->p01_estorage === null ? 'false' : $this->p01_estorage,
+            $this->p01_estorage === null ? 'false' : (is_bool($this->p01_estorage)
+                ? ($this->p01_estorage ? 't' : 'f') : $this->p01_estorage),
             $this->p01_ordem, $this->p01_assinado, $this->p01_assinado_por,
             $this->p01_documento_hash, $this->p01_depart, $this->p01_nivelacesso,
         ]);
@@ -369,6 +370,11 @@ try {
         $model->setOrdem(1);
     }
     $model->setCaminhoArquivo($input);
+    if ($fork === 'dbseller') {
+        // This input is a PostgreSQL wire representation, not a boolean.
+        // The original model must not skip OID allocation for nonempty 'f'.
+        $model->setStorage('f');
+    }
 
     protoSql('BEGIN');
     protoAssert((bool)$model->salvar(), 'Original protocol incluir failed');
@@ -406,11 +412,12 @@ try {
         'Original protocol download mismatch immediately after COMMIT'
     );
     unlink($downloadPath);
-    // The upstream model attempts E-Storage for PostgreSQL's textual 'f'.
-    // Our test boundary must reject this and the legacy fallback must work.
+    // Only the unfixed CPD model should attempt the historical fallback.
+    // The pinned DBSeller regression must not access E-Storage for OID bytes.
+    $storageAttempts = \App\Domain\Configuracao\Helpers\StorageHelper::$attempts;
     protoAssert(
-        $fork === 'contass' || \App\Domain\Configuracao\Helpers\StorageHelper::$attempts > 0,
-        'Pinned model no longer follows expected false-string fallback'
+        $fork === 'cpd' ? $storageAttempts > 0 : $storageAttempts === 0,
+        'Unexpected E-Storage fallback for the pinned Protocolo model'
     );
     protoSql('COMMIT');
     protoAssert($worker->runOnce(), 'Shared worker did not finalize protocol annex');
