@@ -94,6 +94,10 @@ jobs:
           "${compose[@]}" up -d --no-deps erp-web
           # Composer lock references git@github.com:DBSeller/Session.git.
           # Use HTTPS to access public code; do not add SSH keys or tokens.
+          # The stock vendor Dockerfile omits git, required by Composer's
+          # legacy Session VCS dependency. Add only this CI prerequisite.
+          "${compose[@]}" exec -T erp-web bash -ec \
+            'apt-get update -qq && apt-get install -y -qq --no-install-recommends git >/dev/null'
           "${compose[@]}" exec -T erp-web git config --global \
             url.https://github.com/.insteadOf git@github.com:
           log="$RUNNER_TEMP/dbseller-vendor-install.log"
