@@ -71,7 +71,7 @@ if [[ "$login_code" != 200 ]]; then
   if [[ "$login_code" == 500 ]]; then
     for logfile in /var/log/php_errors.log /var/log/apache2/error.log; do
       if [[ -r "$logfile" ]]; then
-        location="$(grep -Eo '/var/www/html/[a-zA-Z0-9_./-]+\\.php( on line |:)[0-9]+' "$logfile" | tail -n 1 || true)"
+        location="$(grep -Eo '/var/www/html/[a-zA-Z0-9_./-]+\.php( on line |:)[0-9]+' "$logfile" | tail -n 1 || true)"
         if [[ -n "$location" ]]; then
           echo "ERP PHP source location: $location" >&2
           break
