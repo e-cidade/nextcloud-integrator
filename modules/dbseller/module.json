@@ -44,6 +44,13 @@
         "path": "ecidade/classes/db_protprocessodocumento_classe.php",
         "git_blob": "b1f52999d0f0e630e9dfcac7a04fa93a161e136a"
       }
+    },
+    {
+      "type": "source-signature",
+      "source": {
+        "path": "ecidade/prot4_processodocumento.RPC.php",
+        "git_blob": "96a15890cdc55a2d73cae6896e04c2bd1072d90e"
+      }
     }
   ]
 }

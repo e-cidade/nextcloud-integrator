@@ -126,6 +126,13 @@ final class DBSellerSourcePreflightTest extends TestCase
         self::assertFalse($manifest['production_ready']);
         self::assertNotContains('estorage-adapter', $manifest['capabilities']);
         self::assertContains('large-object-facade', $manifest['capabilities']);
+        $routes = array_values(array_filter(
+            $manifest['hooks'],
+            static fn (array $hook): bool => $hook['type'] === 'source-signature'
+                && $hook['source']['path'] === 'ecidade/prot4_processodocumento.RPC.php'
+        ));
+        self::assertCount(1, $routes);
+        self::assertSame('96a15890cdc55a2d73cae6896e04c2bd1072d90e', $routes[0]['source']['git_blob']);
     }
 
     private function remove(string $directory): void

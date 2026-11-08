@@ -103,7 +103,8 @@ jobs:
           git -C "$RUNNER_TEMP/fork-original" sparse-checkout add "/$source_model"
           if [ "${{ matrix.fork }}" = dbseller ]; then
             git -C "$RUNNER_TEMP/fork-original" sparse-checkout add \
-              /ecidade/classes/db_protprocessodocumento_classe.php
+              /ecidade/classes/db_protprocessodocumento_classe.php \
+              /ecidade/prot4_processodocumento.RPC.php
           elif [ "${{ matrix.fork }}" = cpd ]; then
             git -C "$RUNNER_TEMP/fork-original" sparse-checkout add \
               /classes/db_protprocessodocumento_classe.php
