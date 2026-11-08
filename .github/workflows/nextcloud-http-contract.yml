@@ -6,6 +6,17 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
+    inputs:
+      dbseller_sha:
+        description: Exact 40-character public DBSeller revision
+        type: string
+        required: true
+      dbseller_pr:
+        description: Optional upstream pull request number for fork-based PRs
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -21,6 +32,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: e-cidade/nextcloud-integrator
+          ref: ${{ github.repository == 'e-cidade/nextcloud-integrator' && github.ref || 'main' }}
           persist-credentials: false
 
       - name: Set temporary synthetic credentials and unique project
@@ -114,6 +127,29 @@ jobs:
             php bin/integrator.php verify-pinned "$fork" "$root"
           done
 
+      # e-cidade/e-cidade-DBSeller#2 is UNMERGED; this preview is not
+      # an update to the source manifest, nor an authorization for deployment.
+      - name: Fetch pinned unmerged DBSeller correction for disposable preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=.build/preview-dbseller-pr2
+          mkdir -p "$root"
+          git -C "$root" init -q
+          git -C "$root" remote add origin https://github.com/e-cidade/e-cidade-DBSeller.git
+          git -C "$root" sparse-checkout init --no-cone
+          git -C "$root" sparse-checkout set --no-cone /ecidade/model/protocolo/ProcessoDocumento.model.php
+          git -C "$root" fetch --depth 1 --filter=blob:none origin 2a17b7ad3cacffacdce9dfb52679c60a54ee3836
+          git -C "$root" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "$root" rev-parse HEAD)" = 2a17b7ad3cacffacdce9dfb52679c60a54ee3836
+
+      - name: Fetch and attest DBSeller candidate from its exact commit
+        shell: bash
+        env:
+          DBS_SHA: ${{ inputs.dbseller_sha || '2a17b7ad3cacffacdce9dfb52679c60a54ee3836' }}
+          DBSELLER_CANDIDATE_PR: ${{ inputs.dbseller_pr || '' }}
+        run: bash .github/scripts/fetch-dbseller-candidate.sh "$DBS_SHA" ".build/dbseller-candidate"
+
       - name: Verify PHP SDK over trusted HTTPS and transactional PostgreSQL
         run: |
           C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
@@ -138,6 +174,35 @@ jobs:
               "/sdk/.build/pinned-$fork/model/protocolo/ProcessoDocumento.model.php" \
               "$fork"
           done
+          # Original DAO + model, SQL business row, SPI and HTTPS remote.
+          # Legacy reproduces the defect; fixed tests only PR #2 preview.
+          for variant in legacy fixed; do
+            if [ "$variant" = legacy ]; then
+              model=/sdk/.build/pinned-dbseller/ecidade/model/protocolo/ProcessoDocumento.model.php
+            else
+              model=/sdk/.build/preview-dbseller-pr2/ecidade/model/protocolo/ProcessoDocumento.model.php
+            fi
+            $I run --rm --no-deps \
+              -e ECIDADE_SYNTHETIC_FORK_CONTRACT=1 \
+              -e ECIDADE_MVP_PENDING_READ_KEY="$MVP_SYNTHETIC_PENDING_KEY" \
+              --entrypoint php ledger-runner \
+              /sdk/tests/upstream/protocolo-generated-dao-contract.php \
+              "$model" \
+              /sdk/.build/pinned-dbseller/ecidade/classes/db_protprocessodocumento_classe.php \
+              dbseller "$variant"
+          done
+          # Run the exact upstream revision using the same real PostgreSQL,
+          # SPI, outbox, verified TLS, and Nextcloud server, not a fake.
+          $I run --rm --no-deps \
+            -e ECIDADE_SYNTHETIC_FORK_CONTRACT=1 \
+            -e ECIDADE_MVP_PENDING_READ_KEY="$MVP_SYNTHETIC_PENDING_KEY" \
+            -e ECIDADE_DBSELLER_CANDIDATE_MODEL_BLOB="$ECIDADE_DBSELLER_CANDIDATE_MODEL_BLOB" \
+            -e ECIDADE_DBSELLER_CANDIDATE_DAO_BLOB="$ECIDADE_DBSELLER_CANDIDATE_DAO_BLOB" \
+            --entrypoint php ledger-runner \
+            /sdk/tests/upstream/protocolo-generated-dao-contract.php \
+            /sdk/.build/dbseller-candidate/ecidade/model/protocolo/ProcessoDocumento.model.php \
+            /sdk/.build/dbseller-candidate/ecidade/classes/db_protprocessodocumento_classe.php \
+            dbseller "$DBSELLER_CANDIDATE_VARIANT"
 
       - name: Revoke synthetic account and deny further access
         run: |

@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: DBSeller upstream regression watch
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbseller-upstream-watch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    name: Resolve exact DBSeller main commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      dbseller_sha: ${{ steps.revision.outputs.dbseller_sha }}
+    steps:
+      - name: Verify public main revision
+        id: revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(git ls-remote https://github.com/e-cidade/e-cidade-DBSeller.git refs/heads/main | cut -f1)"
+          [[ "$sha" =~ ^[a-f0-9]{40}$ ]] || { echo "Cannot resolve upstream main" >&2; exit 1; }
+          echo "dbseller_sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "DBSeller main revision: \`$sha\`" >> "$GITHUB_STEP_SUMMARY"
+
+  native:
+    name: PHP 5.6 and SQL contract at upstream main
+    needs: resolve
+    uses: ./.github/workflows/fork-source-runtime.yml # zizmor: ignore[self-repository] actionlint 1.7.12 requires this syntax
+    with:
+      dbseller_sha: ${{ needs.resolve.outputs.dbseller_sha }}
+
+  https:
+    name: Nextcloud HTTPS contract at upstream main
+    needs: resolve
+    uses: ./.github/workflows/nextcloud-http-contract.yml # zizmor: ignore[self-repository] actionlint 1.7.12 requires this syntax
+    with:
+      dbseller_sha: ${{ needs.resolve.outputs.dbseller_sha }}
