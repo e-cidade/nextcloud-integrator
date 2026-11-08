@@ -182,7 +182,7 @@ jobs:
     if: ${{ inputs.dbseller_sha != '' }}
     needs: native
     name: Original DBSeller ERP install, SQL and authenticated HTTP
-    uses: e-cidade/nextcloud-integrator/.github/workflows/dbseller-erp-bootstrap.yml@main
+    uses: ./.github/workflows/dbseller-erp-bootstrap.yml
     with:
       dbseller_sha: ${{ inputs.dbseller_sha }}
       dbseller_pr: ${{ inputs.dbseller_pr || '' }}
