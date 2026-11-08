@@ -148,7 +148,7 @@ jobs:
         env:
           DBS_SHA: ${{ inputs.dbseller_sha || '2a17b7ad3cacffacdce9dfb52679c60a54ee3836' }}
           DBSELLER_CANDIDATE_PR: ${{ inputs.dbseller_pr || '' }}
-        run: bash tests/upstream/fetch-dbseller-candidate.sh "$DBS_SHA" ".build/dbseller-candidate"
+        run: bash .github/scripts/fetch-dbseller-candidate.sh "$DBS_SHA" ".build/dbseller-candidate"
 
       - name: Verify PHP SDK over trusted HTTPS and transactional PostgreSQL
         run: |

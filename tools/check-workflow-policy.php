@@ -17,7 +17,7 @@ foreach ($paths as $file) {
             continue;
         }
         $reference = $m[1];
-        if (strpos($reference, './') === 0) {
+        if (strpos($reference, './') === 0 || strpos($reference, '$/') === 0) {
             continue;
         }
         $count++;
