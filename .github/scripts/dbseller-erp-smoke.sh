@@ -112,6 +112,12 @@ SQL
   exit 1
 fi
 
+# Original login precedes the browser's institution/module selection.
+# Select only an existing department assigned to that authenticated demo user.
+# This is a test-only window-context fixture, not proof of UI navigation.
+php /ci/dbseller-erp-session-context.php "$temp/cookies"
+
+
 # Exercise the ORIGINAL Protocolo RPC through the authenticated vendor PHP
 # session. An unknown action deliberately performs no document mutation: this
 # isolates framework/DB/session compatibility before E2E document cutover.
