@@ -22,7 +22,7 @@ replacing the shared SPI. There are two complementary triggers:
    scheduled safety net, not an instant webhook: GitHub may delay or
    skip scheduled events. It also supports manual `workflow_dispatch`.
 
-Both tests fetch the same three original PHP files from the specific upstream
+Both tests fetch the same four original PHP files from the specific upstream
 tree, verify their Git blob hashes, and reject mutable ref inputs. The
 source preflight also compares the legacy `DBLargeObject` API with the SPI
 facade. The manifests and runtime production flags are untouched.
@@ -33,6 +33,7 @@ facade. The manifests and runtime production flags are untouched.
 | --- | --- | --- |
 | Native source regression | PHP 5.6, PostgreSQL 11 | Source syntax, legacy public API, original generated DAO/model, SQL behavior, storage classification, transaction rollback, ACL denial and logical OIDs |
 | Integrated remote regression | Docker, PostgreSQL 11, Nextcloud 35, verified HTTPS | Same candidate DAO/model, shared SPI, outbox and worker, read-after-write, immutable revisions, checksum, actor revocation, municipality isolation, rollback, delete and no new PG large object/bytea for the synthetic path |
+| Original Protocolo HTTP RPC | PHP HTTP server in disposable Docker; unmodified original RPC/model/generated DAO, synthetic session/bootstrapping, PostgreSQL 11 and Nextcloud 35 HTTPS | Create, read, list, change metadata and delete; no persistent native PG LO/bytea; reject unauthenticated requests and unsupported E-Storage mode |
 | Integrator baseline | Existing pinned suites, PHPUnit, PHPStan and workflow security checks | The known public revisions and all shared core contracts remain independently reproducible |
 
 The current pinned DBSeller source is revision `4403143407ac8925dbc0143d6f8f3fd2be0cf5e8` with
@@ -49,15 +50,19 @@ Compose exposes no host ports, and all volumes are destroyed.
 
 ## Not yet demonstrated (issue #6 remains open)
 
-This is **component-level integration with a real remote backend**, not
-full end-to-end municipal certification. Original Protocolo HTTP routing,
-ERP bootstrap, full municipal database schema, authenticated business
-sessions, E-Storage `allowed[]`/`file_father`, other persistent filesystem
+The original Protocolo RPC **source is now executed unchanged through
+HTTP**, against its original generated DAO and model, PostgreSQL and
+Nextcloud HTTPS. However its framework includes, DB session and identity
+are synthetic, not the complete ERP bootstrap or an authenticated
+municipal session. Therefore this is a route-level integration contract,
+**not full end-to-end municipal certification**. A full municipal
+database schema, authenticated business sessions, E-Storage
+`allowed[]`/`file_father`, other persistent filesystem
 paths, crash injection for the ERP route, and real actor-to-Nextcloud
 mapping remain untested. None of these checks should be described as
 passed or marked as skipped-success.
 
-A future browser-level Behat/Playwright smoke test is justified only after
+A browser-level Behat/Playwright test is justified only after
 a fully licensed, synthetic, reproducible DBSeller installation can boot
 and exercise actual Protocolo user interactions. Until then, PHP 5.6
 contract and HTTPS integration tests provide more relevant evidence.

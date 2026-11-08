@@ -164,6 +164,7 @@ jobs:
           php -l "$source_root/std/DBLargeObject.php"
           php -l "$source_root/model/protocolo/ProcessoDocumento.model.php"
           php -l "$source_root/classes/db_protprocessodocumento_classe.php"
+          php -l "$source_root/prot4_processodocumento.RPC.php"
           php tests/upstream/facade-signature.php \
             "$source_root/std/DBLargeObject.php" modules/dbseller/DBLargeObject.php
           php tests/upstream/native-large-object-contract.php \

@@ -180,6 +180,22 @@ jobs:
             /sdk/.build/dbseller-candidate/ecidade/classes/db_protprocessodocumento_classe.php \
             dbseller "$DBSELLER_CANDIDATE_VARIANT"
 
+      - name: Exercise original DBSeller municipal RPC over HTTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A historical known-bug revision cannot claim fixed route semantics.
+          test "$DBSELLER_CANDIDATE_VARIANT" = fixed || {
+            echo "DBSeller original RPC candidate has known unsafe storage classification" >&2
+            exit 1
+          }
+          I="docker compose --profile integration -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
+          $I up -d --wait --wait-timeout 120 dbseller-route-ci
+          $I run --rm --no-deps \
+            -e ECIDADE_SYNTHETIC_ERP_HTTP_TEST=1 \
+            -e ECIDADE_MVP_PENDING_READ_KEY="$MVP_SYNTHETIC_PENDING_KEY" \
+            --entrypoint php ledger-runner /sdk/tests/upstream/dbseller-http-client.php
+
       - name: Revoke synthetic account and deny further access
         run: |
           C="docker compose -p $MVP_PROJECT -f tests/compose.nextcloud.synthetic.yml"
