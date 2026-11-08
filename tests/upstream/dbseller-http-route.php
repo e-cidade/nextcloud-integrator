@@ -1,4 +1,5 @@
 <?php
+
 // SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
@@ -136,8 +137,12 @@ function modification($source)
     // synthetic identity. Those layers are outside this contract.
     return '/sdk/tests/upstream/dbseller-http-noop.php';
 }
-class DBException extends Exception {}
-class BusinessException extends Exception {}
+class DBException extends Exception
+{
+}
+class BusinessException extends Exception
+{
+}
 class rotulo
 {
     public function __construct($name)
@@ -186,21 +191,45 @@ class services_json
 class UsuarioSistema
 {
     private $id;
-    public function __construct($id) { $this->id = $id; }
-    public function getIdUsuario() { return $this->id; }
-    public function getNome() { return 'Synthetic Actor'; }
+    public function __construct($id)
+    {
+        $this->id = $id;
+    }
+    public function getIdUsuario()
+    {
+        return $this->id;
+    }
+    public function getNome()
+    {
+        return 'Synthetic Actor';
+    }
 }
 class SyntheticDepartamento
 {
-    public function getCodigo() { return 11; }
-    public function getNomeDepartamento() { return 'Synthetic Department'; }
+    public function getCodigo()
+    {
+        return 11;
+    }
+    public function getNomeDepartamento()
+    {
+        return 'Synthetic Department';
+    }
 }
 class processoProtocolo
 {
     private $id;
-    public function __construct($id) { $this->id = $id; }
-    public function getCodProcesso() { return $this->id; }
-    public function getDepartamentoAtual() { return new SyntheticDepartamento(); }
+    public function __construct($id)
+    {
+        $this->id = $id;
+    }
+    public function getCodProcesso()
+    {
+        return $this->id;
+    }
+    public function getDepartamentoAtual()
+    {
+        return new SyntheticDepartamento();
+    }
     public function getDocumentos()
     {
         $rows = syntheticSql('SELECT p01_sequencial FROM protprocessodocumento WHERE p01_protprocesso=900001');
@@ -283,7 +312,10 @@ try {
     ]);
     $coordinator = new \ECidade\Nextcloud\Application\DocumentCoordinator($ledger, $remote);
     $spi = new \ECidade\Nextcloud\Application\AdapterServiceV1(
-        $coordinator, $ledger, new SyntheticRpcPolicy(), [
+        $coordinator,
+        $ledger,
+        new SyntheticRpcPolicy(),
+        [
             'id' => 'dbseller',
             'production_ready' => false,
             'storage_capabilities' => [[
@@ -296,7 +328,10 @@ try {
     \ECidade\Nextcloud\LargeObjectBridge::bind(
         $spi,
         new \ECidade\Nextcloud\Domain\AdapterContext(
-            $scope, 'dbseller', 'large-object-facade', 'synthetic-protocol-actor'
+            $scope,
+            'dbseller',
+            'large-object-facade',
+            'synthetic-protocol-actor'
         ),
         $ledger
     );

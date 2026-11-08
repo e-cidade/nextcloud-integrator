@@ -1,4 +1,5 @@
 <?php
+
 // SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
@@ -97,18 +98,24 @@ verifyRpc(pg_num_rows($rows) === 1, 'Original business create did not persist on
 $row = pg_fetch_assoc($rows);
 $id = (int)$row['p01_sequencial'];
 $oid = (int)$row['oid'];
-verifyRpc($id > 0 && $oid >= 3000000000 && $row['p01_estorage'] === 'f',
-    'Original business OID/storage flag invalid');
+verifyRpc(
+    $id > 0 && $oid >= 3000000000 && $row['p01_estorage'] === 'f',
+    'Original business OID/storage flag invalid'
+);
 $sha = hash('sha256', "original-dbseller-http-only\0" . str_repeat('R', 8192));
 $download = rpc($base + ['exec' => 'download', 'iCodigoDocumento' => $id]);
-verifyRpc(isset($download['sha256']) && $download['sha256'] === $sha,
-    'Original route read-after-COMMIT bytes differ from Nextcloud version');
+verifyRpc(
+    isset($download['sha256']) && $download['sha256'] === $sha,
+    'Original route read-after-COMMIT bytes differ from Nextcloud version'
+);
 
 $listed = rpc($base + ['exec' => 'carregarDocumentos']);
-verifyRpc(isset($listed['aDocumentosVinculados'])
+verifyRpc(
+    isset($listed['aDocumentosVinculados'])
     && count($listed['aDocumentosVinculados']) === 1
     && (int)$listed['aDocumentosVinculados'][0]['iCodigoDocumento'] === $id,
-    'Original protocol document list did not include stored attachment');
+    'Original protocol document list did not include stored attachment'
+);
 
 rpc($base + [
     'exec' => 'salvarDocumento', 'iCodigoDocumento' => $id,
@@ -139,9 +146,11 @@ $remote = new \ECidade\Nextcloud\Transport\NextcloudMvpClient($scope, [
 ]);
 $ledger = new \ECidade\Nextcloud\Persistence\PgDocumentLedger($db);
 $coordinator = new \ECidade\Nextcloud\Application\DocumentCoordinator($ledger, $remote);
-verifyRpc($coordinator->read($scope, $oid)
+verifyRpc(
+    $coordinator->read($scope, $oid)
     === "original-dbseller-http-only\0" . str_repeat('R', 8192),
-    'Original HTTP route did not produce shared SQL/Nextcloud document bytes');
+    'Original HTTP route did not produce shared SQL/Nextcloud document bytes'
+);
 $worker = new \ECidade\Nextcloud\Application\DocumentReconciler($ledger, $remote, $scope);
 verifyRpc($worker->runOnce(), 'Original HTTP route outbox was not reconciled');
 $second = rpc($base + ['exec' => 'download', 'iCodigoDocumento' => $id]);
