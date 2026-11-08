@@ -121,6 +121,37 @@ jobs:
                 echo "::error title=DBSeller installer phase::$label" >&2
               fi
             done
+            # Classify common vendor SQL/Composer failure signatures without
+            # printing original SQL statements or potentially sensitive lines.
+            for category in \
+              'database does not exist:missing-database' \
+              'role .* does not exist:missing-database-role' \
+              'could not connect to server:database-connection' \
+              'could not open file:missing-install-file' \
+              'permission denied:permission-denied' \
+              'syntax error at or near:sql-syntax-error' \
+              'already exists:preexisting-database-object' \
+              'could not find a matching version of package:composer-package-unavailable' \
+              'Authentication required:composer-authentication' \
+              'Permission denied (publickey):composer-vcs-authentication' \
+              'requires php:composer-php-version' \
+              'Your lock file does not contain a compatible set:composer-platform-mismatch' \
+              'Class .* not found:php-class-missing' \
+              'Fatal error:php-fatal-error'; do
+              pattern="${category%%:*}"
+              label="${category#*:}"
+              if grep -Eiq "$pattern" "$log"; then
+                echo "::error title=Vendor dependency diagnosis::$label" >&2
+              fi
+            done
+            # Independently inspect ONLY database catalog counts to determine
+            # how far the vendor restore progressed. No SELECT of municipal rows.
+            if db_count="$("${compose[@]}" exec -T erp-web bash -ec \
+              'PGPASSWORD="$DB_PASSWORD" psql -X -q -tA -h "$DB_HOST" -U "$DB_USERNAME" -d "$DB_DATABASE" -c "SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('\''pg_catalog'\'','\''information_schema'\'')" 2>/dev/null)"; then
+              echo "Vendor restore created $db_count application tables before failing" >&2
+            else
+              echo 'Vendor database missing or inaccessible after installer' >&2
+            fi
             exit 1
           fi
           rm -f "$log" "$DBSELLER_ERP_ROOT/ecidade/docker/ecidade_base.sql"
