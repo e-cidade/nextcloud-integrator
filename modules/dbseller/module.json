@@ -5,7 +5,7 @@
   "version": "0.1.0-lab",
   "tested": true,
   "min_php": "5.6.4",
-  "upstream": "e-cidade/e-cidade-DBSeller@4403143407ac8925dbc0143d6f8f3fd2be0cf5e8",
+  "upstream": "e-cidade/e-cidade-DBSeller@d256de6c8344a813e9cfb08673448cf5b8e5cc5c",
   "capabilities": [
     "large-object-facade"
   ],
@@ -35,14 +35,14 @@
       "type": "source-signature",
       "source": {
         "path": "ecidade/model/protocolo/ProcessoDocumento.model.php",
-        "git_blob": "a55762f32a27c3d00cc348ca93a7ab4588d2be09"
+        "git_blob": "251ac8e5087c1e29280189eccd89ab452e54ca00"
       }
     },
     {
       "type": "source-signature",
       "source": {
         "path": "ecidade/classes/db_protprocessodocumento_classe.php",
-        "git_blob": "b1f52999d0f0e630e9dfcac7a04fa93a161e136a"
+        "git_blob": "ebc874cb8897a1a381631ab240940dfc672f8f13"
       }
     },
     {

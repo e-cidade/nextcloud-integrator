@@ -301,7 +301,8 @@ try {
 
     $document = pg_fetch_assoc(erpQuery(
         $db,
-        'SELECT p01_sequencial,p01_documento::text AS oid,p01_descricao,p01_estorage '
+        'SELECT p01_sequencial,p01_documento::text AS oid,p01_descricao,'
+        . 'p01_estorage,p01_documento_hash '
         . 'FROM protprocessodocumento WHERE p01_protprocesso=$1',
         [$process]
     ));
@@ -310,6 +311,10 @@ try {
     $oid = (int) $document['oid'];
     erpAssert($documentId > 0 && $oid >= 3000000000
         && $document['p01_estorage'] === 'f', 'Original Protocolo did not use logical Nextcloud OID');
+    erpAssert(
+        $document['p01_documento_hash'] === hash('sha256', $bytes),
+        'Original Protocolo DAO did not persist the exact staged document checksum'
+    );
     $row = pg_fetch_assoc(erpQuery(
         $db,
         'SELECT d.document_key, o.checksum, o.byte_count, o.remote_file_id '
@@ -358,15 +363,16 @@ try {
     ], $cookie, 'Update original Protocolo description');
     $updated = pg_fetch_assoc(erpQuery(
         $db,
-        'SELECT p01_descricao,p01_documento::text AS oid '
+        'SELECT p01_descricao,p01_documento::text AS oid,p01_documento_hash '
         . 'FROM protprocessodocumento WHERE p01_sequencial=$1',
         [$documentId]
     ));
     erpAssert(
         $updated !== false
         && $updated['p01_descricao'] === 'CI original ERP document metadata update'
-        && (int) $updated['oid'] === $oid,
-        'Original business update changed the immutable document reference'
+        && (int) $updated['oid'] === $oid
+        && $updated['p01_documento_hash'] === hash('sha256', $bytes),
+        'Original business update changed the immutable document reference or checksum'
     );
 
     $scope = new \ECidade\Nextcloud\Domain\Scope('installation-a', 'municipio-a');
