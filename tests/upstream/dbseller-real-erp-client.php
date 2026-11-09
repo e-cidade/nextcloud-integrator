@@ -93,10 +93,37 @@ function erpHttp($url, $json, $cookieJar)
     erpAssert(is_string($body), 'Original ERP HTTP transport failed');
     return [$status, $body];
 }
+function erpSafeRpcBodyClassification($body)
+{
+    if ($body === '') {
+        return 'empty-body';
+    }
+    $labels = [];
+    foreach ([
+        'Fatal error' => 'php-fatal',
+        'Warning' => 'php-warning',
+        'Notice' => 'php-notice',
+        'Parse error' => 'php-parse-error',
+        'SQLSTATE' => 'sqlstate',
+    ] as $pattern => $label) {
+        if (stripos($body, $pattern) !== false) {
+            $labels[] = $label;
+        }
+    }
+    if (stripos($body, '<html') !== false) {
+        $labels[] = 'html';
+    }
+    if (strpos($body, '"iStatus"') !== false) {
+        $labels[] = 'rpc-json-marker';
+    }
+    $labels[] = 'json-error-' . json_last_error();
+    $labels[] = 'body-length-' . strlen($body);
+    return implode(',', $labels);
+}
 function erpProbeVendorDaoInsert($connection, $process, $user)
 {
-    // Diagnostic only: exercise the original public demo table constraints
-    // with the exact generated DAO column shape in a ROLLBACK-only transaction.
+    // Diagnostic only: check the original table with a valid non-null checksum
+    // and the generated DAO column shape; always ROLLBACK the probe.
     // Do not replace the original RPC assertion with this synthetic probe.
     if (!$connection || !$process || !$user || !@pg_query($connection, 'BEGIN')) {
         return 'cannot-start-sql-probe';
@@ -109,8 +136,8 @@ function erpProbeVendorDaoInsert($connection, $process, $user)
         . 'p01_estorage,p01_ordem,p01_assinado,p01_assinado_por,p01_documento_hash) '
         . "VALUES (nextval('protprocessodocumento_p01_sequencial_seq'),"
         . "$1,'CI disposable DAO probe',$2::oid,'ci-probe.pdf',$3,CURRENT_DATE,"
-        . '0,false,0,false,NULL,NULL)',
-        [(int) $process, '3000002001', (int) $user]
+        . '0,false,0,false,NULL,$4)',
+        [(int) $process, '3000002001', (int) $user, hash('sha256', 'ci-probe.pdf')]
     );
     $error = $result === false ? (string) @pg_last_error($connection) : '';
     @pg_query($connection, 'ROLLBACK');
@@ -141,7 +168,8 @@ function erpRpc($params, $cookieJar, $stage)
         // The original RPC returns an URL-encoded business error string. Do
         // not print raw ERP responses, SQL, cookies or tenant identifiers.
         $reason = is_array($result) && isset($result['sMensagem'])
-            ? (string) urldecode($result['sMensagem']) : 'Unrecognized RPC response';
+            ? (string) urldecode($result['sMensagem'])
+            : 'Unrecognized RPC response (' . erpSafeRpcBodyClassification($body) . ')';
         $reason = strip_tags($reason);
         $reason = preg_replace('/https?:\\/\\/\\S+/i', '[url]', $reason);
         $reason = preg_replace('/(?:\\/|\\\\\\\\)[^\\s,:;]+/', '[path]', $reason);
@@ -154,11 +182,18 @@ function erpRpc($params, $cookieJar, $stage)
         if ($stage === 'Create real Protocolo attachment'
             && isset($GLOBALS['db'], $GLOBALS['process'], $GLOBALS['identity'])
             && $GLOBALS['process'] !== null) {
-            $daoProbe = '; ' . erpProbeVendorDaoInsert(
+            $persisted = @pg_query_params(
                 $GLOBALS['db'],
-                $GLOBALS['process'],
-                $GLOBALS['identity']['id_usuario']
+                'SELECT count(*) FROM protprocessodocumento WHERE p01_protprocesso=$1',
+                [(int) $GLOBALS['process']]
             );
+            $visible = $persisted ? ((int) pg_fetch_result($persisted, 0, 0)) : -1;
+            $daoProbe = '; visible-vendor-document-rows=' . $visible . '; '
+                . erpProbeVendorDaoInsert(
+                    $GLOBALS['db'],
+                    $GLOBALS['process'],
+                    $GLOBALS['identity']['id_usuario']
+                );
         }
         throw new RuntimeException(
             'Original ERP + Nextcloud E2E: ' . $stage
