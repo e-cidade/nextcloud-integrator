@@ -70,6 +70,69 @@ if (!$module) {
     exit('Original ERP demo has no Protocolo module');
 }
 
+// The vendor's normal menu opener calls db_logs(): it creates a real
+// db_logsacessa audit row and stores its codsequen as DB_acessado. The
+// generated document DAO needs this foreign key when auditing an INSERT.
+// This disposable fixture selects a real item of the verified original
+// Protocolo module, and writes the exact vendor audit-record shape without
+// claiming that a browser menu page was visited or disabling the audit.
+$menuItems = @pg_query_params(
+    $connection,
+    'SELECT i.id_item FROM db_itensmenu i '
+    . 'INNER JOIN db_menu m ON m.id_item_filho=i.id_item '
+    . "WHERE m.modulo=$1 AND trim(i.funcao)<>'' ORDER BY i.id_item LIMIT 1",
+    array((int) $module['id_item'])
+);
+$menu = $menuItems ? pg_fetch_assoc($menuItems) : false;
+if (!$menu) {
+    http_response_code(500);
+    exit('Original ERP demo has no Protocolo menu entry for audit');
+}
+
+// Like the real db_savesession(), initialize the backend database session
+// before issuing the original audit-table INSERT.
+if (!@pg_query($connection, 'SELECT fc_startsession()')) {
+    http_response_code(500);
+    exit('Original ERP database session initialization failed');
+}
+$databaseContext = array(
+    'DB_LOGIN' => 'dbseller',
+    'DB_ID_USUARIO' => (string) $_SESSION['DB_id_usuario'],
+    'DB_CODDEPTO' => (string) $department['coddepto'],
+    'DB_INSTIT' => (string) $department['instit'],
+    'DB_ANOUSU' => date('Y'),
+    'DB_DATAUSU' => date('Y-m-d'),
+);
+foreach ($databaseContext as $key => $value) {
+    if (!@pg_query_params($connection, 'SELECT fc_putsession($1,$2)', array($key, $value))) {
+        http_response_code(500);
+        exit('Original ERP audit database context unavailable');
+    }
+}
+$access = @pg_query_params(
+    $connection,
+    'INSERT INTO db_logsacessa VALUES ('
+    . "nextval('db_logsacessa_codsequen_seq'),"
+    . '$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING codsequen',
+    array(
+        $_SERVER['REMOTE_ADDR'],
+        date('Y-m-d'),
+        date('H:i:s'),
+        $_SERVER['REQUEST_URI'],
+        'CI authenticated Protocolo module selection',
+        (int) $_SESSION['DB_id_usuario'],
+        (int) $module['id_item'],
+        (int) $menu['id_item'],
+        (int) $department['coddepto'],
+        (int) $department['instit'],
+    )
+);
+$accessId = $access ? pg_fetch_result($access, 0, 0) : false;
+if ($accessId === false || (int) $accessId <= 0) {
+    http_response_code(500);
+    exit('Original ERP menu access audit row could not be recorded');
+}
+
 // The real UI normally selects institution/module/year/department. Change
 // ONLY those window context attributes after verifying the existing identity.
 $_SESSION['DB_coddepto'] = (int) $department['coddepto'];
@@ -79,7 +142,8 @@ $_SESSION['DB_nome_modulo'] = $module['nome_modulo'];
 $_SESSION['DB_anousu'] = (int) date('Y');
 $_SESSION['DB_datausu'] = time();
 $_SESSION['DB_uol_hora'] = time();
-$_SESSION['DB_itemmenu_acessado'] = 0;
+$_SESSION['DB_itemmenu_acessado'] = (int) $menu['id_item'];
+$_SESSION['DB_acessado'] = (int) $accessId;
 session_write_close();
 pg_close($connection);
 header('Content-Type: text/plain');
