@@ -27,8 +27,35 @@ function erpAssert($condition, $label)
 }
 function erpQuery($connection, $sql, array $params = [])
 {
+    static $statement = 0;
+    $statement++;
     $result = @pg_query_params($connection, $sql, $params);
-    erpAssert($result !== false, 'Original ERP disposable SQL command failed');
+    if ($result === false) {
+        // Do not output SQL, demo records, identifiers or PostgreSQL DETAIL.
+        // A statement ordinal plus a fixed failure class is enough to
+        // diagnose a mismatch with the vendor's public demonstration schema.
+        $error = (string) @pg_last_error($connection);
+        $category = 'other';
+        foreach ([
+            'does not exist' => 'missing-schema-object',
+            'violates foreign key' => 'foreign-key',
+            'violates not-null' => 'not-null',
+            'violates unique' => 'unique',
+            'value too long' => 'field-length',
+            'invalid input syntax' => 'invalid-value',
+            'permission denied' => 'permission',
+            'current transaction is aborted' => 'transaction-aborted',
+        ] as $pattern => $label) {
+            if (stripos($error, $pattern) !== false) {
+                $category = $label;
+                break;
+            }
+        }
+        throw new RuntimeException(
+            'Original ERP + Nextcloud E2E: demo SQL statement ' . $statement
+            . ' failed (' . $category . ')'
+        );
+    }
     return $result;
 }
 function erpHttp($url, $json, $cookieJar)
