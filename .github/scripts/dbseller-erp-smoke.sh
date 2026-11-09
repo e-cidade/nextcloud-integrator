@@ -127,7 +127,9 @@ if [[ "$context_code" != 200 ]] || ! grep -Fq 'Authorized vendor Protocolo sessi
     'Original ERP demo has no Protocolo menu entry for audit' \
     'Original ERP database session initialization failed' \
     'Original ERP audit database context unavailable' \
-    'Original ERP menu access audit row could not be recorded'; do
+    'Original ERP audit access sequence unavailable' \
+    'Original ERP menu access audit row could not be recorded' \
+    'Original ERP audit partition did not persist access record'; do
     if grep -Fxq "$reason" "$temp/context"; then
       echo "Original ERP audit context: $reason" >&2
       break
