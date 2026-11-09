@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 # Inventário inicial de armazenamento — DBSeller pública
 
 **Fonte exclusivamente pública:** `e-cidade/e-cidade-DBSeller` no commit
-`4403143407ac8925dbc0143d6f8f3fd2be0cf5e8`. Não houve acesso a
+`e309c84546486bf54449e91eb079d19e94ae497a`. Não houve acesso a
 servidores, bancos ou documentos de terceiros. Nenhum caminho absoluto
 de computador é documentado aqui.
 
@@ -17,7 +17,7 @@ de computador é documentado aqui.
 | `ecidade/std/DBLargeObject.php` | `pg_lo_create`, `pg_lo_open`, `pg_lo_write`, `pg_lo_export`, `pg_lo_unlink` | Fachada PHP coberta pela PoC |
 | `ecidade/app/Domain/Configuracao/Helpers/StorageHelper.php` | Cliente E-Storage: upload, mudança, download, base64 | **Não coberto**. Exige adaptação de interface separada |
 | `ecidade/DBFileUpload.php` | `move_uploaded_file` para pasta temporária | Precisa rastrear ciclo de vida; arquivo temporário não é necessariamente storage definitivo |
-| `ecidade/prot4_processodocumento.RPC.php` | RPC original de Protocolo: `salvarDocumento`, `carregarDocumentos`, `download`, `excluirDocumento` | Coberto por HTTP em laboratório com modelo/DAO originais, sessão e bootstrap sintéticos; fonte pinada por blob |
+| `ecidade/prot4_processodocumento.RPC.php` | RPC original de Protocolo: `salvarDocumento`, `carregarDocumentos`, `download`, `excluirDocumento` | Coberto tanto no contrato sintético quanto em um teste HTTP autenticado com o ERP PHP 5.6 original, banco de demonstração PostgreSQL 16, DAO original e Nextcloud 35 HTTPS |
 | `ecidade/routes/api/patrimonial/protocolo.php` / `app/Domain/Patrimonial/Protocolo/Controller/Processo/ProcessoDocumentoController.php` | API Laravel para download via `StorageHelper` | Superfície **E-Storage distinta**; não é comprovada pelo fluxo OID/RPC |
 
 O contrato funcional detalhado, incluindo `allowed[]`,
@@ -86,18 +86,25 @@ Mesmo com o inventário completo, cada ocorrência precisa ser
 classificada como arquivo definitivo, temporário, cache, relatório,
 exportação ou anexo de negócio, conforme o fluxo real.
 
-## Próximas provas exigidas pela issue #6
+## Prova do fluxo Protocolo e limites
 
-1. Selecionar um módulo e fluxo municipal do código **público** que
-   crie e recupere documentos.
-2. Identificar os pontos reais de leitura e escrita, inclusive E-Storage.
-3. Construir **fixtures sintéticas**, sem cópias de bancos municipais.
-4. Executar o fluxo da aplicação real em uma instalação descartável,
-   com autorização expressa do mantenedor do sistema.
-5. Instrumentar PostgreSQL, Nextcloud e filesystem para detectar
-   gravações persistentes inesperadas. Contagem de LO, isoladamente,
-   não prova ausência de cópias em outro lugar.
-6. Registrar a matriz de cobertura e os mecanismos fora do escopo.
+A CI executa a instalação real e descartável da DBSeller, com PHP 5.6,
+PostgreSQL 16 e o banco de demonstração original. Após autenticação HTTP
+real, cria um processo de teste, aciona `salvarDocumento`, `download`,
+`carregarDocumentos` e `excluirDocumento` na rota RPC original e verifica
+uma atualização de metadados. O fluxo passa pelo DAO original e pela fachada
+`DBLargeObject` adaptada ao SPI compartilhado, com Nextcloud 35 HTTPS.
+O teste confere hash SHA-256, outbox, leitura e exclusão; também compara
+contagens de Large Objects antes/depois e confirma ausência de coluna
+`bytea` na tabela do documento selecionado. O arquivo local usado como
+entrada e a cópia temporária de download são removidos no final.
+
+**Cobertura não demonstrada:** a ausência de cópias permanentes em todos os
+diretórios do ERP, outras rotas `pg_lo_*`, `bytea`, E-Storage com `allowed[]`
+e `file_father`, navegação completa de navegador e autorização de instalações
+municipais reais. A classificação dessas superfícies continua necessária,
+mas elas não impedem a evidência específica do ciclo de Protocolo.
+A contagem de LO não é prova universal da ausência de duplicação.
 
 **Não executar nenhuma dessas etapas em servidor de cliente.** O
 projeto entrega código para que os mantenedores o avaliem em seus

@@ -30,15 +30,18 @@ preservada. O MVP é uma **implementação experimental desativada**.
   e ausência de bytes documentais no PostgreSQL. A suíte roda no
   mesmo workflow `nextcloud-http-contract.yml` em serviços
   exclusivamente descartáveis.
-- Ponte sintética para interface legada, **não instalada em nenhum ERP**.
+- Ponte sintética para interface legada, **não instalada em nenhum ERP de produção**.
+- Gate E2E do Protocolo na DBSeller original: instalação PHP 5.6, banco público
+de demonstração PostgreSQL 16, login HTTP autenticado e RPC original para
+criar/listar/baixar/atualizar/excluir documentos, com Nextcloud 35 HTTPS,
+hashes e reconciliação. Executado somente em containers descartáveis.
 
 ## Ainda não demonstrado
 
-- Execução na aplicação DBSeller **completa**, por um módulo municipal
-  real. A suíte integrada usa transações empresariais sintéticas,
-  não o fluxo de interface e-Cidade.
-- Instalação de prova em aplicação DBSeller completa e fluxos municipais
-  reais com dados sintéticos.
+- Navegação integral de navegador/UX do Protocolo original; o teste E2E
+  executa RPC HTTP autenticado e uma seleção de departamento controlada.
+- Certificação de outras superfícies e módulos municipais da DBSeller,
+  além do fluxo de documento do Protocolo testado com fixtures sintéticas.
 - Cobertura de E-Storage, `pg_lo_*` diretos e outras rotas documentais.
 - Migração de dados históricos, recuperação de versões legadas e
   desativação/retorno transparente em sistemas existentes.

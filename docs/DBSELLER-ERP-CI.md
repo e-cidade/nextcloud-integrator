@@ -10,8 +10,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 The original Protocolo model, generated DAO and RPC already have PHP 5.6,
 PostgreSQL 11, shared SPI and Nextcloud 35 HTTPS tests. That suite explicitly
 replaces the ERP bootstrap, municipal schema and authentication with synthetic
-seams. This complementary job runs the **actual upstream Docker installation**
-and attempts a real authenticated HTTP login against its published example SQL.
+seams. The complementary job runs the **actual upstream Docker installation**, authenticates
+through the vendor's original HTTP login against its published example SQL,
+and exercises the original Protocolo RPC with the shared Nextcloud 35 HTTPS
+adapter in the same disposable application.
 
 ## What is executed
 
@@ -51,13 +53,22 @@ Existing native PostgreSQL/SPI and Nextcloud HTTPS workflows remain separate
 required compatibility checks. Workflow inputs may be specified for an
 explicit manual public revision test.
 
-**This is a real vendor ERP bootstrap/authentication gate, not yet a full
-ERP-to-Nextcloud Protocolo CRUD test.** Its PostgreSQL 16 database is
-independent of the PostgreSQL 11 synthetic SPI contract. Passing both jobs
-does not establish that real ERP login/session, business schema, SQL journal,
-authorized actor mapping and Nextcloud document operations run in a *single*
-request. That remains the issue #6 acceptance gate. Do not turn on production
-integration or close the issue on the basis of this job.
+**This is a real vendor ERP Protocolo document-lifecycle gate.** After an
+original PHP 5.6 login and department authorization using the restored
+PostgreSQL 16 example database, it executes the original authenticated RPC
+for document create/list/download/metadata update/delete against Nextcloud 35
+HTTPS. Assertions cover SHA-256 persistence on create/update, exact downloaded
+bytes, SQL metadata/outbox, remote reconciliation, deletion, and no additional
+native PostgreSQL large objects or `bytea` field for this selected flow.
+
+The test inserts a disposable Protocolo business fixture, uses a temporary PDF,
+and simulates selecting the module/window after authenticating through the
+actual ERP. It does **not** exercise full browser navigation, municipality-
+specific production ACL mapping, E-Storage `allowed[]` and `file_father`,
+other module storage paths or an exhaustive filesystem audit. This is a
+**single-flow lab proof**, not a production cutover or universal ERP coverage;
+`production_ready=false` remains required. The independent PostgreSQL 11
+synthetic SPI contract is still separate and complementary.
 
 Because the vendor ships default demo credentials and unpinned apt/Composer
 sources, this is **only** for GitHub-hosted disposable runners, never a public
