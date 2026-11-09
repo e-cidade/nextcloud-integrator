@@ -33,11 +33,12 @@ facade. The manifests and runtime production flags are untouched.
 | --- | --- | --- |
 | Native source regression | PHP 5.6, PostgreSQL 11 | Source syntax, legacy public API, original generated DAO/model, SQL behavior, storage classification, transaction rollback, ACL denial and logical OIDs |
 | Integrated remote regression | Docker, PostgreSQL 11, Nextcloud 35, verified HTTPS | Same candidate DAO/model, shared SPI, outbox and worker, read-after-write, immutable revisions, checksum, actor revocation, municipality isolation, rollback, delete and no new PG large object/bytea for the synthetic path |
-| Original Protocolo HTTP RPC | PHP HTTP server in disposable Docker; unmodified original RPC/model/generated DAO, synthetic session/bootstrapping, PostgreSQL 11 and Nextcloud 35 HTTPS | Create, read, list, change metadata and delete; no persistent native PG LO/bytea; reject unauthenticated requests and unsupported E-Storage mode |
+| Original Protocolo HTTP RPC (synthetic contract) | PHP HTTP server in disposable Docker; original RPC/model/generated DAO, synthetic session/bootstrap, PostgreSQL 11 and Nextcloud 35 HTTPS | Create, read, list, change metadata and delete; no persistent native PG LO/bytea; reject unauthenticated requests and unsupported E-Storage mode |
+| Original DBSeller ERP Protocolo E2E | Vendor PHP 5.6 Apache, restored vendor PostgreSQL 16 example schema and real HTTP login/session, Nextcloud 35 verified HTTPS | Original authenticated RPC CRUD, SHA-256 preserved after metadata update, same document bytes, SQL outbox and reconciliation, no new native PG LO in selected flow |
 | Integrator baseline | Existing pinned suites, PHPUnit, PHPStan and workflow security checks | The known public revisions and all shared core contracts remain independently reproducible |
 
-The current pinned DBSeller source is revision `4403143407ac8925dbc0143d6f8f3fd2be0cf5e8` with
-model blob `a55762f32a27c3d00cc348ca93a7ab4588d2be09`, including the corrected OID inclusion path.
+The current pinned DBSeller source is the merged revision `e309c84546486bf54449e91eb079d19e94ae497a` with
+model blob `251ac8e5087c1e29280189eccd89ab452e54ca00`, including the corrected OID inclusion and mandatory document SHA-256 persistence.
 The historical `4935e0514c8b206853f071d60612647503cedb99`
 model remains explicitly **legacy-buggy**; new revisions must pass the
 fixed semantic contract, including insertion with the textual PostgreSQL `f`. A source change is not
@@ -48,24 +49,23 @@ privileged secrets or production credentials in these workflows.
 Only `contents: read` is permitted, Git credentials are not persisted,
 Compose exposes no host ports, and all volumes are destroyed.
 
-## Not yet demonstrated (issue #6 remains open)
+## Demonstrated flow and remaining scope
 
-The original Protocolo RPC **source is now executed unchanged through
-HTTP**, against its original generated DAO and model, PostgreSQL and
-Nextcloud HTTPS. However its framework includes, DB session and identity
-are synthetic, not the complete ERP bootstrap or an authenticated
-municipal session. Therefore this is a route-level integration contract,
-**not full end-to-end municipal certification**. A full municipal
-database schema, authenticated business sessions, E-Storage
-`allowed[]`/`file_father`, other persistent filesystem
-paths, crash injection for the ERP route, and real actor-to-Nextcloud
-mapping remain untested. None of these checks should be described as
-passed or marked as skipped-success.
+The full original DBSeller ERP now boots from its public source and example
+database, authenticates a user via the vendor's actual HTTP login, and runs
+the Protocolo document lifecycle through its original RPC and DAO with the
+shared Nextcloud HTTPS adapter. This is an end-to-end **single-flow laboratory**
+test, rather than the earlier synthetic route-only contract.
 
-A browser-level Behat/Playwright test is justified only after
-a fully licensed, synthetic, reproducible DBSeller installation can boot
-and exercise actual Protocolo user interactions. Until then, PHP 5.6
-contract and HTTPS integration tests provide more relevant evidence.
+The test creates one temporary process and stages one PDF. It simulates the
+post-login module/window choice, rather than driving the complete browser UI.
+Production actor/tenant mapping, E-Storage `allowed[]`/`file_father`, other
+persistent filesystem and direct `pg_lo_*` paths, exhaustive storage checks
+and crash injection for this original ERP request are still not certified.
+Passing this gate does not activate production integration or establish
+universal municipal-document coverage. Browser-level automation may be
+added later for user-interface behavior, but is not needed to prove this
+original RPC flow.
 
 ## Activation
 

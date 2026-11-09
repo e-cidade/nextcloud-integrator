@@ -1,0 +1,310 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: DBSeller vendor ERP bootstrap (real database and login)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      dbseller_sha:
+        description: Optional exact upstream Git SHA (default is pinned stable)
+        type: string
+        required: false
+      dbseller_pr:
+        description: Optional upstream PR number, for fork HEAD
+        type: string
+        required: false
+  workflow_call:
+    inputs:
+      dbseller_sha:
+        description: Exact 40-character public DBSeller revision
+        type: string
+        required: true
+      dbseller_pr:
+        description: Optional upstream PR number
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-erp-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vendor-erp:
+    name: Original DBSeller Protocolo + Nextcloud 35 document lifecycle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      ECIDADE_ERP_DISPOSABLE_CI: '1'
+      DBS_SHA: ${{ inputs.dbseller_sha || 'e309c84546486bf54449e91eb079d19e94ae497a' }}
+      DBSELLER_CANDIDATE_PR: ${{ inputs.dbseller_pr || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: e-cidade/nextcloud-integrator
+          ref: ${{ github.repository == 'e-cidade/nextcloud-integrator' && github.ref || 'main' }}
+          persist-credentials: false
+
+      - name: Fetch entire exact DBSeller candidate and verify original vendor setup
+        shell: bash
+        run: bash .github/scripts/dbseller-erp-fetch.sh "$DBS_SHA" "$DBSELLER_CANDIDATE_PR"
+
+      - name: Attest original Protocolo PHP files before building source
+        shell: bash
+        run: bash .github/scripts/fetch-dbseller-candidate.sh "$DBS_SHA" "$RUNNER_TEMP/dbseller-source"
+
+      - name: Allocate unique disposable Compose project and database password
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(openssl rand -hex 32)"
+          echo "::add-mask::$password"
+          echo "ERP_DB_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "ERP_PROJECT=ecidade-erp-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+          remote_password="$(openssl rand -hex 32)"
+          remote_pending="$(openssl rand -hex 32)"
+          echo "::add-mask::$remote_password"
+          echo "::add-mask::$remote_pending"
+          echo "MVP_SYNTHETIC_PASSWORD=$remote_password" >> "$GITHUB_ENV"
+          echo "MVP_SYNTHETIC_PENDING_KEY=$remote_pending" >> "$GITHUB_ENV"
+          echo "MVP_PROJECT=ecidade-erp-nc-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+
+      - name: Verify no DB or ERP service exposes host ports
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml config --quiet
+          docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml \
+            config --format json | jq -e '[.services[] | has("ports")] | all(. == false)'
+
+      - name: Build original DBSeller PHP 5.6 and PostgreSQL 16 images
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml \
+            build erp-db erp-web
+
+      - name: Prepare original database and run vendor installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          compose=(docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml)
+          # README runs gunzip in the mounted /var/www/html tree, not repo root.
+          gzip -dk "$DBSELLER_ERP_ROOT/ecidade/docker/ecidade_base.sql.gz"
+          "${compose[@]}" up -d --wait --wait-timeout 180 erp-db
+          "${compose[@]}" up -d --no-deps erp-web
+          # Composer lock references git@github.com:DBSeller/Session.git.
+          # Use HTTPS to access public code; do not add SSH keys or tokens.
+          # The stock vendor Dockerfile omits git, required by Composer's
+          # legacy Session VCS dependency. Add only this CI prerequisite.
+          "${compose[@]}" exec -T erp-web bash -ec \
+            'apt-get update -qq && apt-get install -y -qq --no-install-recommends git >/dev/null'
+          "${compose[@]}" exec -T erp-web git config --global \
+            url.https://github.com/.insteadOf git@github.com:
+          log="$RUNNER_TEMP/dbseller-vendor-install.log"
+          # Original script can mask failures with '|| true' / '|| echo'.
+          # Capture it privately, check the status and then assert real state.
+          if ! "${compose[@]}" exec -T erp-web bash docker/install.sh >"$log" 2>&1; then
+            echo 'Original DBSeller installer returned an error (private logs not uploaded)' >&2
+            exit 1
+          fi
+          if grep -Eq '\[ERROR\]|\[Error\]|Problema ao criar' "$log"; then
+            # Emit predefined failure categories, never raw SQL, database
+            # records, generated keys, passwords, or Composer credentials.
+            echo 'Original DBSeller installer reported an internal failure' >&2
+            for category in \
+              'Problema ao criar o banco de dados:vendor-database-restore' \
+              'Problema ao configurar:vendor-configuration' \
+              'Problema ao instalar:vendor-composer-or-artisan'; do
+              pattern="${category%%:*}"
+              label="${category#*:}"
+              if grep -Fq "$pattern" "$log"; then
+                echo "::error title=DBSeller installer phase::$label" >&2
+              fi
+            done
+            # Classify common vendor SQL/Composer failure signatures without
+            # printing original SQL statements or potentially sensitive lines.
+            for category in \
+              'database does not exist:missing-database' \
+              'role .* does not exist:missing-database-role' \
+              'could not connect to server:database-connection' \
+              'could not open file:missing-install-file' \
+              'permission denied:permission-denied' \
+              'syntax error at or near:sql-syntax-error' \
+              'already exists:preexisting-database-object' \
+              'could not find a matching version of package:composer-package-unavailable' \
+              'Authentication required:composer-authentication' \
+              'Permission denied (publickey):composer-vcs-authentication' \
+              'requires php:composer-php-version' \
+              'Your lock file does not contain a compatible set:composer-platform-mismatch' \
+              'Class .* not found:php-class-missing' \
+              'Fatal error:php-fatal-error'; do
+              pattern="${category%%:*}"
+              label="${category#*:}"
+              if grep -Eiq "$pattern" "$log"; then
+                echo "::error title=Vendor dependency diagnosis::$label" >&2
+              fi
+            done
+            # Independently inspect ONLY database catalog counts to determine
+            # how far the vendor restore progressed. No SELECT of municipal rows.
+            if db_count="$("${compose[@]}" exec -T \
+              -e "PGPASSWORD=$ERP_DB_PASSWORD" erp-web psql -X -q -tA \
+              -h erp-db -U postgres -d ecidade \
+              -c "SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')" 2>/dev/null)"; then
+              echo "Vendor restore created $db_count application tables before failing" >&2
+            else
+              echo 'Vendor database missing or inaccessible after installer' >&2
+            fi
+            exit 1
+          fi
+          rm -f "$log" "$DBSELLER_ERP_ROOT/ecidade/docker/ecidade_base.sql"
+          # Vendor ships a .dist prerequisite manifest but docker/install.sh
+          # does not promote it. Without this file, index.php and login.php
+          # display a configuration error or redirect instead of the login.
+          # Copy only inside the disposable CI checkout after original setup.
+          "${compose[@]}" exec -T erp-web bash -ec '
+            set -e
+            cd /var/www/html
+            test -s config/require_extensions.xml.dist
+            test ! -e config/require_extensions.xml
+            cp config/require_extensions.xml.dist config/require_extensions.xml
+            test -s config/require_extensions.xml
+            # Required by abrir.php for the release-version check; vendor
+            # installer also omits this .dist promotion.
+            test -s libs/db_acessa.php.dist
+            test ! -e libs/db_acessa.php
+            cp libs/db_acessa.php.dist libs/db_acessa.php
+            test -s libs/db_acessa.php
+          '
+          # The original application routes this ephemeral fixture through
+          # its real Apache session handler; never publish or ship the file.
+          test ! -e "$DBSELLER_ERP_ROOT/ecidade/.ci-erp-session-context.php"
+          printf '%s\n' '<?php require_once "/ci/dbseller-erp-session-context.php";' > "$DBSELLER_ERP_ROOT/ecidade/.ci-erp-session-context.php"
+          test -s "$DBSELLER_ERP_ROOT/ecidade/.ci-erp-session-context.php"
+          # The real ERP opens extension/log/*.log during authentication.
+          # The read-write checkout belongs to the runner, not Apache's
+          # www-data user. Restrict write access to this disposable log
+          # directory; never chmod the entire ERP tree world-writable.
+          "${compose[@]}" exec -T erp-web bash -ec '
+            set -eu
+            cd /var/www/html
+            test -d extension
+            test ! -L extension/log
+            install -d -m 0770 -o www-data -g www-data extension/log
+            if find extension/log -type l | grep -q .; then
+              echo "Unsafe symlink in disposable ERP log directory" >&2
+              exit 1
+            fi
+            chown -R www-data:www-data extension/log
+            chmod -R u+rwX,g+rwX,o-rwx extension/log
+            su -s /bin/sh www-data -c "test -w /var/www/html/extension/log"
+          '
+
+      - name: Remove installer internet access before real HTTP tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          compose=(docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml)
+          container="$("${compose[@]}" ps -q erp-web)"
+          test -n "$container"
+          docker network disconnect "${ERP_PROJECT}_setup-egress" "$container"
+          test "$(docker inspect -f '{{len .NetworkSettings.Networks}}' "$container")" = 1
+
+      - name: Verify the real restored database and actual ERP authenticated HTTP login
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml \
+            exec -T erp-web bash /ci/dbseller-erp-smoke.sh
+
+      - name: Start disposable Nextcloud 35 with trusted HTTPS for real ERP
+        shell: bash
+        run: |
+          set -euo pipefail
+          C=(docker compose -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml)
+          I=(docker compose --profile integration -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml)
+          E=(docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml)
+          "${C[@]}" up -d --wait --wait-timeout 180 nextcloud
+          "${C[@]}" exec -T --user www-data nextcloud php occ app:enable ecidadelab
+          "${C[@]}" exec -T --user www-data nextcloud php occ config:system:set ecidadelab_pending_read_key --value="$MVP_SYNTHETIC_PENDING_KEY"
+          "${C[@]}" exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-admin installation --value=installation-a
+          "${C[@]}" exec -T --user www-data nextcloud php occ config:system:set ecidadelab_principals synthetic-admin tenant --value=municipio-a
+          "${C[@]}" exec -T --user www-data nextcloud php occ config:system:set ecidadelab_mvp_enabled --type=boolean --value=true
+          "${C[@]}" restart nextcloud
+          "${C[@]}" up -d --wait --wait-timeout 180 nextcloud
+          "${C[@]}" exec -T nextcloud sh -ec 'umask 077; openssl req -x509 -newkey rsa:2048 -nodes -days 1 -sha256 -subj "/CN=synthetic-nextcloud" -addext "subjectAltName=DNS:synthetic-nextcloud" -keyout /synthetic-certs/key.pem -out /synthetic-certs/cert.pem >/dev/null 2>&1; chmod 0644 /synthetic-certs/cert.pem'
+          "${I[@]}" up -d --wait --wait-timeout 120 tls-proxy
+          # Both networks are internal; no service exposes a host port.
+          erp_container="$("${E[@]}" ps -q erp-web)"
+          nextcloud_container="$("${C[@]}" ps -q nextcloud)"
+          test -n "$erp_container" && test -n "$nextcloud_container"
+          docker network connect "${MVP_PROJECT}_synthetic" "$erp_container"
+          # Share only public CA certificate, never the TLS private key.
+          docker cp "$nextcloud_container:/synthetic-certs/cert.pem" "$RUNNER_TEMP/dbseller-nextcloud-ca.pem"
+          docker cp "$RUNNER_TEMP/dbseller-nextcloud-ca.pem" "$erp_container:/tmp/ecidade-nextcloud-ca.pem"
+          # Metadata-only schema in disposable ORIGINAL ERP demonstration DB.
+          "${E[@]}" exec -T erp-web psql -X -q -v ON_ERROR_STOP=1 \
+            -h erp-db -U postgres -d ecidade < database/001_opt_in_mvp_schema.sql
+          # Attest untouched upstream facade BEFORE the ephemeral CI-only overlay.
+          original="$DBSELLER_ERP_ROOT/ecidade/std/DBLargeObject.php"
+          actual="$(git -C "$DBSELLER_ERP_ROOT" hash-object ecidade/std/DBLargeObject.php)"
+          expected="$(jq -er '.hooks[] | select(.type=="php-file-override" and .target=="std/DBLargeObject.php") | .source.git_blob' modules/dbseller/module.json)"
+          test "$actual" = "$expected" && test ! -L "$original" || {
+            echo "Unexpected original DBSeller large object facade revision" >&2
+            exit 1
+          }
+          printf '%s\n' '<?php' "require_once '/sdk/modules/dbseller/DBLargeObject.php';" "require_once '/sdk/tests/upstream/dbseller-real-erp-binding.php';" > "$original"
+          # Only ephemeral staging/download files may be written by Apache.
+          "${E[@]}" exec -T erp-web bash -ec 'install -d -m 0770 -o www-data -g www-data /var/www/html/tmp'
+          "${E[@]}" exec -T erp-web php -l /var/www/html/std/DBLargeObject.php
+          "${E[@]}" exec -T erp-web php -l /sdk/tests/upstream/dbseller-real-erp-binding.php
+          "${E[@]}" exec -T erp-web php -l /sdk/tests/upstream/dbseller-real-erp-client.php
+
+      - name: Full original Protocolo RPC document CRUD through real Nextcloud 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml \
+            exec -T erp-web php /sdk/tests/upstream/dbseller-real-erp-client.php
+
+      - name: Record precisely what the real-ERP gate proves
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo '### Original DBSeller environment'
+            echo "- Candidate SHA: `$DBSELLER_CANDIDATE_SHA`"
+            echo '- Original vendor Dockerfiles: PHP 5.6 + PostgreSQL 16'
+            echo '- Original vendor demo SQL restore / LATIN1 schema: validated'
+            echo '- Original ERP HTTP index and authenticated session: validated'
+            echo '- Real Protocolo RPC document create, read, list, update and delete over Nextcloud 35 HTTPS: validated'
+            echo '- Metadata-only PostgreSQL journal, reconciler and no PostgreSQL native document-byte duplication: validated'
+            echo '- Internet egress disconnected before HTTP assertions'
+            echo '- No host ports, privileged credentials, artifacts or persistent volumes'
+            echo '- **Not certified:** full browser navigation, production ACL/tenant mapping, all ERP document surfaces or municipality cutover'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Destroy only this disposable ERP project and installer data
+        if: always()
+        shell: bash
+        run: |
+          if test -n "${MVP_PROJECT:-}"; then
+            docker compose --profile integration -p "$MVP_PROJECT" -f tests/compose.nextcloud.synthetic.yml \
+              down --volumes --remove-orphans || true
+          fi
+          rm -f "$RUNNER_TEMP/dbseller-nextcloud-ca.pem"
+          if [ -n "${ERP_PROJECT:-}" ] && [ -n "${DBSELLER_ERP_ROOT:-}" ]; then
+            docker compose -p "$ERP_PROJECT" -f tests/compose.dbseller.erp.yml \
+              down --volumes --remove-orphans || true
+          fi
+          rm -f "$RUNNER_TEMP/dbseller-vendor-install.log"
+          if [ -n "${DBSELLER_ERP_ROOT:-}" ]; then
+            rm -f "$DBSELLER_ERP_ROOT/ecidade/docker/ecidade_base.sql"
+            rm -f "$DBSELLER_ERP_ROOT/ecidade/.ci-erp-session-context.php"
+          fi

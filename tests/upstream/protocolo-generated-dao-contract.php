@@ -49,7 +49,7 @@ if ($liveHttps && $fork !== 'dbseller') {
 $modelBlobs = [
     'dbseller' => [
         'legacy' => '4935e0514c8b206853f071d60612647503cedb99',
-        'fixed' => 'a55762f32a27c3d00cc348ca93a7ab4588d2be09',
+        'fixed' => '251ac8e5087c1e29280189eccd89ab452e54ca00',
     ],
     'cpd' => [
         'legacy' => 'b2b62a1cfc49bc402f5a10a4b063219ec7f230e6',
@@ -57,7 +57,7 @@ $modelBlobs = [
     ],
 ];
 $daoBlobs = [
-    'dbseller' => 'b1f52999d0f0e630e9dfcac7a04fa93a161e136a',
+    'dbseller' => 'ebc874cb8897a1a381631ab240940dfc672f8f13',
     'cpd' => '9e130f3a86377bc17b8e7833c6b54a5d5d782939',
 ];
 // An upstream CI candidate is bound to exact Git tree blobs by the fetch

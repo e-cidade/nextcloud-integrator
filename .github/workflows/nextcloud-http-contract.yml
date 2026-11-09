@@ -105,7 +105,7 @@ jobs:
             /ecidade/classes/db_protprocessodocumento_classe.php \
             /ecidade/prot4_processodocumento.RPC.php
           git -C "$root" fetch --depth 1 --filter=blob:none origin \
-            4403143407ac8925dbc0143d6f8f3fd2be0cf5e8
+            e309c84546486bf54449e91eb079d19e94ae497a
           git -C "$root" checkout --quiet --detach FETCH_HEAD
           php bin/integrator.php verify-pinned dbseller "$root"
           for spec in \
@@ -131,7 +131,7 @@ jobs:
       - name: Fetch and attest DBSeller candidate from its exact commit
         shell: bash
         env:
-          DBS_SHA: ${{ inputs.dbseller_sha || '4403143407ac8925dbc0143d6f8f3fd2be0cf5e8' }}
+          DBS_SHA: ${{ inputs.dbseller_sha || 'e309c84546486bf54449e91eb079d19e94ae497a' }}
           DBSELLER_CANDIDATE_PR: ${{ inputs.dbseller_pr || '' }}
         run: bash .github/scripts/fetch-dbseller-candidate.sh "$DBS_SHA" ".build/dbseller-candidate"
 

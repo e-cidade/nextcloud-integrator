@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# GitHub supports self-repository calls since July 2026.
+# actionlint v1.7.12 does not recognize these yet (rhysd/actionlint#760).
+# Ignore only this exact parse error; preserve all other checks.
+paths:
+  .github/workflows/fork-source-runtime.yml:
+    ignore:
+      - '^reusable workflow call "\$/\.github/workflows/dbseller-erp-bootstrap\.yml" at "uses" is not following the format '

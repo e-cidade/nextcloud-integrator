@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Real DBSeller installation, not the earlier synthetic RPC bootstrap.
+# Build FROM THE PUBLIC VENDOR DOCKERFILES and restore the vendor example DB.
+# Deliberately no host ports, shared volumes, real municipal data or secrets.
+services:
+  erp-db:
+    build:
+      context: ${DBSELLER_ERP_ROOT:?Exact, disposable DBSeller checkout required}/docker/database
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${ERP_DB_PASSWORD:?Random CI-only database password required}
+      POSTGRES_INITDB_ARGS: "--encoding=LATIN1 --lc-collate=pt_BR.ISO-8859-1 --lc-ctype=pt_BR.ISO-8859-1"
+    networks:
+      - erp-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 36
+    security_opt:
+      - no-new-privileges:true
+
+  erp-web:
+    build:
+      context: ${DBSELLER_ERP_ROOT:?Exact, disposable DBSeller checkout required}/docker/php56-apache
+    environment:
+      DB_HOST: erp-db
+      DB_PORT: "5432"
+      DB_DATABASE: ecidade
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${ERP_DB_PASSWORD:?Random CI-only database password required}
+      PGPASSWORD: ${ERP_DB_PASSWORD:?Random CI-only database password required}
+      ECIDADE_ERP_DISPOSABLE_CI: "1"
+      ECIDADE_ERP_NEXTCLOUD_E2E: "1"
+      ECIDADE_ADAPTER: dbseller
+      ECIDADE_INTEGRATOR_ROOT: /sdk
+      ECIDADE_SPI_V1: "1"
+      MVP_SYNTHETIC_PASSWORD: ${MVP_SYNTHETIC_PASSWORD:?Random disposable Nextcloud password required}
+      MVP_SYNTHETIC_PENDING_KEY: ${MVP_SYNTHETIC_PENDING_KEY:?Random disposable pending key required}
+    volumes:
+      - ${DBSELLER_ERP_ROOT:?Exact, disposable DBSeller checkout required}/ecidade:/var/www/html
+      - ../.github/scripts:/ci:ro
+      - ../:/sdk:ro
+    networks:
+      - erp-internal
+      - setup-egress
+    depends_on:
+      erp-db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  # ERP + PostgreSQL are isolated. Composer needs outgoing HTTPS during setup
+  # only; the workflow disconnects setup-egress before exercising HTTP.
+  erp-internal:
+    internal: true
+  setup-egress:
+    name: ${ERP_PROJECT:?Unique disposable project name required}_setup-egress
