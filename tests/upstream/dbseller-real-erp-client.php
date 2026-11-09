@@ -93,6 +93,39 @@ function erpHttp($url, $json, $cookieJar)
     erpAssert(is_string($body), 'Original ERP HTTP transport failed');
     return [$status, $body];
 }
+function erpProbeVendorDaoInsert($connection, $process, $user)
+{
+    // Diagnostic only: exercise the original public demo table constraints
+    // with the exact generated DAO column shape in a ROLLBACK-only transaction.
+    // Do not replace the original RPC assertion with this synthetic probe.
+    if (!$connection || !$process || !$user || !@pg_query($connection, 'BEGIN')) {
+        return 'cannot-start-sql-probe';
+    }
+    $result = @pg_query_params(
+        $connection,
+        "INSERT INTO protprocessodocumento "
+        . "(p01_sequencial,p01_protprocesso,p01_descricao,p01_documento,"
+        . "p01_nomedocumento,p01_usuario,p01_data,p01_procandamint,"
+        . "p01_estorage,p01_ordem,p01_assinado,p01_assinado_por,p01_documento_hash) "
+        . "VALUES (nextval('protprocessodocumento_p01_sequencial_seq'),"
+        . "$1,'CI disposable DAO probe',$2::oid,'ci-probe.pdf',$3,CURRENT_DATE,"
+        . "0,false,0,false,NULL,NULL)",
+        [(int) $process, '3000002001', (int) $user]
+    );
+    $error = $result === false ? (string) @pg_last_error($connection) : '';
+    @pg_query($connection, 'ROLLBACK');
+    if ($result !== false) {
+        return 'direct-vendor-table-insert-allowed';
+    }
+    // Public schema diagnostics only; conceal values, identifiers, SQL and
+    // the PostgreSQL DETAIL/CONTEXT lines from the restored vendor demo.
+    $first = trim(strtok($error, "\r\n"));
+    $first = preg_replace('/"[^"]*"/', '"[identifier]"', $first);
+    $first = preg_replace("/'[^']*'/", "'[value]'", $first);
+    $first = preg_replace('/\\b[0-9]+\\b/', '[n]', $first);
+    $first = preg_replace('/[^a-zA-Z0-9 _:.()\\[\\],=<>-]/', '?', $first);
+    return 'direct-vendor-table-insert-rejected: ' . substr($first, 0, 160);
+}
 function erpRpc($params, $cookieJar, $stage)
 {
     list($status, $body) = erpHttp('http://127.0.0.1/prot4_processodocumento.RPC.php', $params, $cookieJar);
@@ -111,9 +144,19 @@ function erpRpc($params, $cookieJar, $stage)
         $reason = preg_replace('/\\b[0-9]+\\b/', '[n]', $reason);
         $reason = preg_replace('/[\\x00-\\x1f\\x7f]/', ' ', $reason);
         $reason = trim(preg_replace('/\\s+/', ' ', $reason));
+        $daoProbe = '';
+        if ($stage === 'Create real Protocolo attachment'
+            && isset($GLOBALS['db'], $GLOBALS['process'], $GLOBALS['identity'])
+            && $GLOBALS['process'] !== null) {
+            $daoProbe = '; ' . erpProbeVendorDaoInsert(
+                $GLOBALS['db'],
+                $GLOBALS['process'],
+                $GLOBALS['identity']['id_usuario']
+            );
+        }
         throw new RuntimeException(
             'Original ERP + Nextcloud E2E: ' . $stage
-            . ' rejected (vendor reason: ' . substr($reason, 0, 160) . ')'
+            . ' rejected (vendor reason: ' . substr($reason, 0, 160) . $daoProbe . ')'
         );
     }
     return $result;
