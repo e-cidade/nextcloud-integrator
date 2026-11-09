@@ -17,34 +17,51 @@ if (PHP_SAPI !== 'cli' || getenv('ECIDADE_ERP_DISPOSABLE_CI') !== '1'
     exit(2);
 }
 
-// The original V3 Window/Session class explicitly uses ECIDADEWINDOWMAIN,
-// NOT PHPSESSID, for the main browser window.
-$sessionId = null;
+// The vendor login establishes a PHP session, while the newer V3 window
+// may also create ECIDADEWINDOWMAIN. The window cookie is not proof that it
+// contains the authenticated identity. Read ONLY the known vendor cookies.
+$sessionIds = array();
 foreach (file($argv[1], FILE_IGNORE_NEW_LINES) as $line) {
-    // Netscape cookie files prefix HttpOnly session cookies with a '#'
-    // comment marker. Such records are still active authentication cookies.
+    // Netscape cookie files prefix HttpOnly cookies with '#HttpOnly_'.
     if (strpos($line, '#HttpOnly_') === 0) {
         $line = substr($line, strlen('#HttpOnly_'));
     } elseif ($line === '' || strpos($line, '#') === 0) {
         continue;
     }
     $fields = explode("\t", $line);
-    if (count($fields) === 7 && $fields[5] === 'ECIDADEWINDOWMAIN'
+    if (count($fields) === 7
+        && in_array($fields[5], array('PHPSESSID', 'ECIDADEWINDOWMAIN'), true)
         && preg_match('/^[a-zA-Z0-9,-]{16,128}$/D', $fields[6])) {
-        $sessionId = $fields[6];
+        $sessionIds[$fields[5]] = $fields[6];
     }
 }
-if ($sessionId === null) {
-    fwrite(STDERR, "Original ERP HTTP login did not return a PHP session cookie\n");
+if (!$sessionIds) {
+    fwrite(STDERR, "Original ERP HTTP login did not return a known PHP session cookie\n");
     exit(1);
 }
 
-session_name('ECIDADEWINDOWMAIN');
-session_id($sessionId);
-if (!session_start() || !isset($_SESSION['DB_login'], $_SESSION['DB_id_usuario'])
-    || $_SESSION['DB_login'] !== 'dbseller'
-    || !ctype_digit((string) $_SESSION['DB_id_usuario'])) {
-    fwrite(STDERR, "Original ERP session is not authenticated as the vendor demo user\n");
+// Never turn an anonymous session into an authenticated one. Find the actual
+// original login session by checking its persisted identity, fail closed.
+$authenticated = false;
+foreach (array('PHPSESSID', 'ECIDADEWINDOWMAIN') as $name) {
+    if (!isset($sessionIds[$name])) {
+        continue;
+    }
+    session_name($name);
+    session_id($sessionIds[$name]);
+    if (!session_start()) {
+        continue;
+    }
+    if (isset($_SESSION['DB_login'], $_SESSION['DB_id_usuario'])
+        && $_SESSION['DB_login'] === 'dbseller'
+        && ctype_digit((string) $_SESSION['DB_id_usuario'])) {
+        $authenticated = true;
+        break;
+    }
+    session_write_close();
+}
+if (!$authenticated) {
+    fwrite(STDERR, "Original ERP session cookies contain no authenticated demo identity\n");
     exit(1);
 }
 
