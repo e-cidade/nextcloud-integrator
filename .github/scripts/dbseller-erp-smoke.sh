@@ -119,10 +119,22 @@ context_code="$(curl --silent --show-error --max-time 30 \
   --cookie-jar "$temp/cookies" --cookie "$temp/cookies" \
   --output "$temp/context" --write-out '%{http_code}' \
   http://127.0.0.1/.ci-erp-session-context.php)"
-[[ "$context_code" == 200 ]] && grep -Fq 'Authorized vendor Protocolo session context: PASS' "$temp/context" || {
+if [[ "$context_code" != 200 ]] || ! grep -Fq 'Authorized vendor Protocolo session context: PASS' "$temp/context"; then
   echo "Original ERP authenticated HTTP module context failed (HTTP $context_code)" >&2
+  # Print only hard-coded, non-sensitive fixture failure categories, never
+  # the raw HTTP response, SQL, cookies or municipal demonstration records.
+  for reason in \
+    'Original ERP demo has no Protocolo menu entry for audit' \
+    'Original ERP database session initialization failed' \
+    'Original ERP audit database context unavailable' \
+    'Original ERP menu access audit row could not be recorded'; do
+    if grep -Fxq "$reason" "$temp/context"; then
+      echo "Original ERP audit context: $reason" >&2
+      break
+    fi
+  done
   exit 1
-}
+fi
 
 
 # Exercise the ORIGINAL Protocolo RPC through the authenticated vendor PHP
