@@ -25,6 +25,29 @@ function erpAssert($condition, $label)
         throw new RuntimeException('Original ERP + Nextcloud E2E: ' . $label);
     }
 }
+function erpAssertNoExtraFilesystemCopies($directory, $bytes, $source, $download)
+{
+    // Scan the original vendor web root while the document is still active.
+    // Staged and downloaded files are explicitly temporary and cleaned up.
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::LEAVES_ONLY
+    );
+    $checksum = hash('sha256', $bytes);
+    $size = strlen($bytes);
+    foreach ($iterator as $file) {
+        if ($file->isLink() || !$file->isFile() || $file->getSize() !== $size) {
+            continue;
+        }
+        $path = $file->getPathname();
+        if ($path === $source || $path === $download) {
+            continue;
+        }
+        $fileChecksum = @hash_file('sha256', $path);
+        erpAssert($fileChecksum !== false, 'Cannot inspect ERP filesystem for document copies');
+        erpAssert($fileChecksum !== $checksum, 'Unexpected duplicate document bytes in ERP filesystem');
+    }
+}
 function erpQuery($connection, $sql, array $params = [])
 {
     static $statement = 0;
@@ -431,6 +454,13 @@ try {
         'Original ERP document could not be read after Nextcloud reconciliation'
     );
 
+    $whileActive = (int) pg_fetch_result(erpQuery(
+        $db,
+        'SELECT count(*) FROM pg_catalog.pg_largeobject_metadata'
+    ), 0, 0);
+    erpAssert($whileActive === $before, 'Original ERP duplicated an active document in native PG LO');
+    erpAssertNoExtraFilesystemCopies('/var/www/html', $bytes, $source, $download);
+
     erpRpc(
         $base + ['exec' => 'excluirDocumento', 'aDocumentosExclusao' => [$documentId]],
         $cookie,
@@ -461,7 +491,8 @@ try {
         . "WHERE table_name='protprocessodocumento' AND data_type='bytea'"
     ), 0, 0);
     erpAssert($bytea === 0, 'Protocolo document bytes persisted in a bytea column');
-    echo "PASS original DBSeller PHP 5.6 login/Protocolo RPC and full Nextcloud 35 HTTPS CRUD, transaction/outbox, no PostgreSQL document-byte duplication\n";
+    erpAssertNoExtraFilesystemCopies('/var/www/html', $bytes, $source, $download);
+    echo "PASS original DBSeller PHP 5.6 login/Protocolo RPC and full Nextcloud 35 HTTPS CRUD, transaction/outbox, no PostgreSQL document-byte duplication or extra ERP filesystem copies\n";
 } catch (Exception $error) {
     fwrite(STDERR, $error->getMessage() . "\n");
     exit(1);

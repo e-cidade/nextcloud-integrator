@@ -105,6 +105,22 @@ e `file_father`, navegação completa de navegador e autorização de instalaç�
 municipais reais. A classificação dessas superfícies continua necessária,
 mas elas não impedem a evidência específica do ciclo de Protocolo.
 A contagem de LO não é prova universal da ausência de duplicação.
+O teste adicional pesquisa cópias com o mesmo tamanho e SHA-256 no web root
+do ERP enquanto o documento existe e depois da exclusão; exclui apenas os
+arquivos conhecidos de entrada e download transitórios. Esse scanner reforça
+a evidência para **este fluxo**, sem provar ausência de conteúdo transformado
+em outros sistemas ou storage externo.
+
+### Matriz de caminhos para o fluxo documentado
+
+| Ação do Protocolo | Código público executado | Classificação dos dados |
+| --- | --- | --- |
+| Criar anexo (`salvarDocumento`) | `prot4_processodocumento.RPC.php` → `ProcessoDocumento::salvar/incluir` → `DBLargeObject::criaOID/escrita` → DAO `cl_protprocessodocumento::incluir` | Documento definitivo no Nextcloud; OID, hash e outbox como metadados PostgreSQL; PDF de entrada somente temporário |
+| Listar (`carregarDocumentos`) | RPC → consulta do processo/DAO | Metadados relacionais, sem nova gravação de bytes |
+| Baixar (`download`) | RPC → `ProcessoDocumento::download` → `DBLargeObject::leitura` | Lê o documento definitivo no Nextcloud; entrega cópia temporária para download |
+| Alterar descrição (`salvarDocumento` com ID) | RPC → `ProcessoDocumento::alterar` → DAO `alterar` | Atualiza metadados; OID e SHA-256 preservados |
+| Excluir (`excluirDocumento`) | RPC → `ProcessoDocumento::excluir` → DAO `excluir` + `DBLargeObject::exclusao` | Remove referência do ERP e marca exclusão no armazenamento remoto |
+| Fora deste fluxo | `StorageHelper`/E-Storage, chamadas `pg_lo_*` diretas, Laravel Storage e outros I/O de arquivos | Exigem testes próprios; não são certificados por esta homologação |
 
 **Não executar nenhuma dessas etapas em servidor de cliente.** O
 projeto entrega código para que os mantenedores o avaliem em seus
