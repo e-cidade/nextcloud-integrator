@@ -165,6 +165,27 @@ try {
     ));
     erpAssert($identity !== false, 'Demo lacks an authorized user and real department');
 
+    // The original db_conecta.php invokes db_savesession(), which first
+    // creates a PostgreSQL backend session and then copies the authenticated
+    // PHP DB_* window context via fc_putsession(). This separate, disposable
+    // fixture SQL connection MUST do the same: vendor Protocolo triggers
+    // reject writes without DB_ANOUSU even when the PHP login succeeded.
+    // The identity and department below come from the authenticated vendor
+    // demo, never from invented test users or disabled authorization.
+    erpQuery($db, 'SELECT fc_startsession()');
+    $dbContext = [
+        'DB_LOGIN' => 'dbseller',
+        'DB_ID_USUARIO' => (string) $identity['id_usuario'],
+        'DB_CODDEPTO' => (string) $identity['coddepto'],
+        'DB_INSTIT' => (string) $identity['instit'],
+        'DB_ANOUSU' => date('Y'),
+        'DB_DATAUSU' => date('Y-m-d'),
+        'DB_UOL_HORA' => (string) time(),
+    ];
+    foreach ($dbContext as $key => $value) {
+        erpQuery($db, 'SELECT fc_putsession($1,$2)', [$key, $value]);
+    }
+
     $before = (int) pg_fetch_result(erpQuery(
         $db,
         'SELECT count(*) FROM pg_catalog.pg_largeobject_metadata'
