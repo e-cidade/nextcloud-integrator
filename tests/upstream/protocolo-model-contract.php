@@ -20,7 +20,7 @@ if (PHP_SAPI !== 'cli' || getenv('ECIDADE_SYNTHETIC_FORK_CONTRACT') !== '1'
 }
 $fork = isset($argv[2]) ? $argv[2] : 'dbseller';
 $pinnedModelHashes = [
-    'dbseller' => 'a55762f32a27c3d00cc348ca93a7ab4588d2be09',
+    'dbseller' => '251ac8e5087c1e29280189eccd89ab452e54ca00',
     'contass' => '2eb3782e84400d40bae177d598445e26140ddf93',
     'cpd' => 'b2b62a1cfc49bc402f5a10a4b063219ec7f230e6',
 ];
