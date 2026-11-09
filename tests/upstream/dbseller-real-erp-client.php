@@ -120,11 +120,17 @@ function erpProbeVendorDaoInsert($connection, $process, $user)
     // Public schema diagnostics only; conceal values, identifiers, SQL and
     // the PostgreSQL DETAIL/CONTEXT lines from the restored vendor demo.
     $first = trim(strtok($error, "\r\n"));
+    // Schema column names in this public vendor table are not personal data.
+    // The exact NOT NULL column is essential to distinguish code/schema drift.
+    $column = 'unknown-column';
+    if (preg_match('/["\\x22](p01_[a-z0-9_]{1,60})["\\x22]/i', $first, $matches)) {
+        $column = $matches[1];
+    }
     $first = preg_replace('/"[^"]*"/', '"[identifier]"', $first);
     $first = preg_replace("/'[^']*'/", "'[value]'", $first);
     $first = preg_replace('/\\b[0-9]+\\b/', '[n]', $first);
     $first = preg_replace('/[^a-zA-Z0-9 _:.()\\[\\],=<>-]/', '?', $first);
-    return 'direct-vendor-table-insert-rejected: ' . substr($first, 0, 160);
+    return 'direct-vendor-table-insert-rejected (' . $column . '): ' . substr($first, 0, 160);
 }
 function erpRpc($params, $cookieJar, $stage)
 {
