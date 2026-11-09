@@ -5,7 +5,7 @@
   "version": "0.1.0-lab",
   "tested": true,
   "min_php": "5.6.4",
-  "upstream": "e-cidade/e-cidade-DBSeller@d256de6c8344a813e9cfb08673448cf5b8e5cc5c",
+  "upstream": "e-cidade/e-cidade-DBSeller@e309c84546486bf54449e91eb079d19e94ae497a",
   "capabilities": [
     "large-object-facade"
   ],

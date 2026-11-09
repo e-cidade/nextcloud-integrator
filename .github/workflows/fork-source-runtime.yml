@@ -41,7 +41,7 @@ jobs:
           - fork: dbseller
             php: '5.6'
             repository: e-cidade-DBSeller
-            commit: d256de6c8344a813e9cfb08673448cf5b8e5cc5c
+            commit: e309c84546486bf54449e91eb079d19e94ae497a
             source: ecidade/std/DBLargeObject.php
           - fork: contass
             php: '7.4'
@@ -153,7 +153,7 @@ jobs:
         if: matrix.fork == 'dbseller'
         shell: bash
         env:
-          DBS_SHA: ${{ inputs.dbseller_sha || 'd256de6c8344a813e9cfb08673448cf5b8e5cc5c' }}
+          DBS_SHA: ${{ inputs.dbseller_sha || 'e309c84546486bf54449e91eb079d19e94ae497a' }}
           DBSELLER_CANDIDATE_PR: ${{ inputs.dbseller_pr || '' }}
         run: bash .github/scripts/fetch-dbseller-candidate.sh "$DBS_SHA" "$RUNNER_TEMP/dbseller-candidate"
       - name: Exercise candidate source through PHP 5.6 and PostgreSQL

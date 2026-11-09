@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 55
     env:
       ECIDADE_ERP_DISPOSABLE_CI: '1'
-      DBS_SHA: ${{ inputs.dbseller_sha || 'd256de6c8344a813e9cfb08673448cf5b8e5cc5c' }}
+      DBS_SHA: ${{ inputs.dbseller_sha || 'e309c84546486bf54449e91eb079d19e94ae497a' }}
       DBSELLER_CANDIDATE_PR: ${{ inputs.dbseller_pr || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
