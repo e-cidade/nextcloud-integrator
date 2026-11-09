@@ -98,10 +98,24 @@ function erpRpc($params, $cookieJar, $stage)
     list($status, $body) = erpHttp('http://127.0.0.1/prot4_processodocumento.RPC.php', $params, $cookieJar);
     erpAssert($status === 200, $stage . ' returned unexpected HTTP ' . $status);
     $result = json_decode($body, true);
-    erpAssert(
-        is_array($result) && isset($result['iStatus']) && (int) $result['iStatus'] === 1,
-        $stage . ' was rejected by original business code'
-    );
+    if (!is_array($result) || !isset($result['iStatus']) || (int) $result['iStatus'] !== 1) {
+        // The original RPC returns an URL-encoded business error string. Do
+        // not print raw ERP responses, SQL, cookies or tenant identifiers.
+        $reason = is_array($result) && isset($result['sMensagem'])
+            ? (string) urldecode($result['sMensagem']) : 'Unrecognized RPC response';
+        $reason = strip_tags($reason);
+        $reason = preg_replace('/https?:\\/\\/\\S+/i', '[url]', $reason);
+        $reason = preg_replace('/(?:\\/|\\\\\\\\)[^\\s,:;]+/', '[path]', $reason);
+        $reason = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i', '[email]', $reason);
+        $reason = preg_replace('/\\b[a-f0-9]{16,}\\b/i', '[hex]', $reason);
+        $reason = preg_replace('/\\b[0-9]+\\b/', '[n]', $reason);
+        $reason = preg_replace('/[\\x00-\\x1f\\x7f]/', ' ', $reason);
+        $reason = trim(preg_replace('/\\s+/', ' ', $reason));
+        throw new RuntimeException(
+            'Original ERP + Nextcloud E2E: ' . $stage
+            . ' rejected (vendor reason: ' . substr($reason, 0, 160) . ')'
+        );
+    }
     return $result;
 }
 spl_autoload_register(function ($class) {
