@@ -103,13 +103,13 @@ function erpProbeVendorDaoInsert($connection, $process, $user)
     }
     $result = @pg_query_params(
         $connection,
-        "INSERT INTO protprocessodocumento "
-        . "(p01_sequencial,p01_protprocesso,p01_descricao,p01_documento,"
-        . "p01_nomedocumento,p01_usuario,p01_data,p01_procandamint,"
-        . "p01_estorage,p01_ordem,p01_assinado,p01_assinado_por,p01_documento_hash) "
+        'INSERT INTO protprocessodocumento '
+        . '(p01_sequencial,p01_protprocesso,p01_descricao,p01_documento,'
+        . 'p01_nomedocumento,p01_usuario,p01_data,p01_procandamint,'
+        . 'p01_estorage,p01_ordem,p01_assinado,p01_assinado_por,p01_documento_hash) '
         . "VALUES (nextval('protprocessodocumento_p01_sequencial_seq'),"
         . "$1,'CI disposable DAO probe',$2::oid,'ci-probe.pdf',$3,CURRENT_DATE,"
-        . "0,false,0,false,NULL,NULL)",
+        . '0,false,0,false,NULL,NULL)',
         [(int) $process, '3000002001', (int) $user]
     );
     $error = $result === false ? (string) @pg_last_error($connection) : '';
