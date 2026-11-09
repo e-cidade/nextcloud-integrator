@@ -51,9 +51,18 @@ function erpQuery($connection, $sql, array $params = [])
                 break;
             }
         }
+        // The first PostgreSQL ERROR line is a schema diagnostic, unlike
+        // DETAIL, HINT or CONTEXT which can contain fixture/municipal data.
+        // Mask identifiers, string literals and numeric values anyway.
+        $first = trim(strtok($error, "\r\n"));
+        $first = preg_replace('/"[^"]*"/', '"[identifier]"', $first);
+        $first = preg_replace("/'[^']*'/", "'[value]'", $first);
+        $first = preg_replace('/\\b[0-9]+\\b/', '[n]', $first);
+        $first = preg_replace('/[^a-zA-Z0-9 _:.()\\[\\],=<>-]/', '?', $first);
+        $first = substr($first, 0, 180);
         throw new RuntimeException(
             'Original ERP + Nextcloud E2E: demo SQL statement ' . $statement
-            . ' failed (' . $category . ')'
+            . ' failed (' . $category . '): ' . $first
         );
     }
     return $result;
