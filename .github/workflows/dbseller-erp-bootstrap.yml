@@ -181,6 +181,11 @@ jobs:
             test ! -e libs/db_acessa.php
             cp libs/db_acessa.php.dist libs/db_acessa.php
             test -s libs/db_acessa.php
+            # Original app.php routes this isolated fixture through its real
+            # Apache window/session handler. Never add it to vendor sources.
+            test ! -e .ci-erp-session-context.php
+            printf '%s\\n' '<?php require_once "/ci/dbseller-erp-session-context.php";' > .ci-erp-session-context.php
+            test -s .ci-erp-session-context.php
           '
           # The real ERP opens extension/log/*.log during authentication.
           # The read-write checkout belongs to the runner, not Apache's
@@ -301,4 +306,5 @@ jobs:
           rm -f "$RUNNER_TEMP/dbseller-vendor-install.log"
           if [ -n "${DBSELLER_ERP_ROOT:-}" ]; then
             rm -f "$DBSELLER_ERP_ROOT/ecidade/docker/ecidade_base.sql"
+            rm -f "$DBSELLER_ERP_ROOT/ecidade/.ci-erp-session-context.php"
           fi

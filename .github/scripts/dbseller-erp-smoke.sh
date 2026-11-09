@@ -115,7 +115,14 @@ fi
 # Original login precedes the browser's institution/module selection.
 # Select only an existing department assigned to that authenticated demo user.
 # This is a test-only window-context fixture, not proof of UI navigation.
-php /ci/dbseller-erp-session-context.php "$temp/cookies"
+context_code="$(curl --silent --show-error --max-time 30 \
+  --cookie-jar "$temp/cookies" --cookie "$temp/cookies" \
+  --output "$temp/context" --write-out '%{http_code}' \
+  http://127.0.0.1/.ci-erp-session-context.php)"
+[[ "$context_code" == 200 ]] && grep -Fq 'Authorized vendor Protocolo session context: PASS' "$temp/context" || {
+  echo "Original ERP authenticated HTTP module context failed (HTTP $context_code)" >&2
+  exit 1
+}
 
 
 # Exercise the ORIGINAL Protocolo RPC through the authenticated vendor PHP

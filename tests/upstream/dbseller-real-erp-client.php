@@ -96,14 +96,15 @@ try {
 
     // Simulate only the module/window choice after REAL ERP authentication.
     // This fixture verifies the selected department in the vendor database.
-    $output = [];
-    $resultCode = 1;
-    exec(
-        'php /ci/dbseller-erp-session-context.php ' . escapeshellarg($cookie) . ' 2>/dev/null',
-        $output,
-        $resultCode
+    list($contextStatus, $contextBody) = erpHttp(
+        'http://127.0.0.1/.ci-erp-session-context.php',
+        null,
+        $cookie
     );
-    erpAssert($resultCode === 0, 'Authenticated vendor user cannot select a real test department');
+    erpAssert(
+        $contextStatus === 200 && strpos($contextBody, 'Authorized vendor Protocolo session context: PASS') !== false,
+        'Authenticated vendor HTTP session cannot select an existing real department'
+    );
 
     $db = @pg_connect(
         'host=' . getenv('DB_HOST') . ' port=' . getenv('DB_PORT')
