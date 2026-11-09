@@ -109,12 +109,24 @@ foreach ($databaseContext as $key => $value) {
         exit('Original ERP audit database context unavailable');
     }
 }
+// The original demo has a twelfth 'auditoria' column with a default,
+// whereas legacy db_logs() inserts the first eleven positional columns.
+// Name the columns to avoid shifting/omitting the default audit flag.
+// The BEFORE INSERT partition trigger returns NULL, so INSERT RETURNING
+// has no result row; reserve the sequence first and verify the child row.
+$sequence = @pg_query($connection, "SELECT nextval('db_logsacessa_codsequen_seq')");
+$accessId = $sequence ? pg_fetch_result($sequence, 0, 0) : false;
+if ($accessId === false || (int) $accessId <= 0) {
+    http_response_code(500);
+    exit('Original ERP audit access sequence unavailable');
+}
 $access = @pg_query_params(
     $connection,
-    'INSERT INTO db_logsacessa VALUES ('
-    . "nextval('db_logsacessa_codsequen_seq'),"
-    . '$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING codsequen',
+    'INSERT INTO db_logsacessa '
+    . '(codsequen,ip,data,hora,arquivo,obs,id_usuario,id_modulo,id_item,coddepto,instit) '
+    . 'VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
     array(
+        (int) $accessId,
         $_SERVER['REMOTE_ADDR'],
         date('Y-m-d'),
         date('H:i:s'),
@@ -127,10 +139,27 @@ $access = @pg_query_params(
         (int) $department['instit'],
     )
 );
-$accessId = $access ? pg_fetch_result($access, 0, 0) : false;
-if ($accessId === false || (int) $accessId <= 0) {
+if (!$access) {
     http_response_code(500);
     exit('Original ERP menu access audit row could not be recorded');
+}
+$verifiedAudit = @pg_query_params(
+    $connection,
+    'SELECT 1 FROM db_logsacessa '
+    . 'WHERE codsequen=$1 AND id_usuario=$2 AND id_modulo=$3 '
+    . 'AND id_item=$4 AND coddepto=$5 AND instit=$6 LIMIT 1',
+    array(
+        (int) $accessId,
+        (int) $_SESSION['DB_id_usuario'],
+        (int) $module['id_item'],
+        (int) $menu['id_item'],
+        (int) $department['coddepto'],
+        (int) $department['instit'],
+    )
+);
+if (!$verifiedAudit || pg_num_rows($verifiedAudit) !== 1) {
+    http_response_code(500);
+    exit('Original ERP audit partition did not persist access record');
 }
 
 // The real UI normally selects institution/module/year/department. Change
